@@ -45,6 +45,7 @@ def extract_tracks_as_wav(infile, silent):
     return extracted_tracks, framerate, framenum
 
 def sox_trim(infile, outfile, trim, framenum, SPF):
+    infile = os.path.normpath(infile)
     tfm = sox.Transformer()
     startframe,endframe = trim[0],trim[1]
     if startframe is None:
@@ -96,22 +97,22 @@ def cleanup_temp_files(files):
                 os.remove(f)
 
 def encode_flac(trimfiles, silent):
-    if silent:
-        silentstr = '--silent'
-    else:
-        silentstr = ''
     for file in trimfiles:
         outfile = f"{os.path.splitext(file)[0]}.flac"
-        subprocess.run(["flac", file, "-8", silentstr, "--force", "-o", outfile])
+        if silent:
+            subprocess.run(["flac", file, "-8", '--silent', "--force", "-o", outfile])
+        else:
+            subprocess.run(["flac", file, "-8", "--force", "-o", outfile])
+        
 
 def encode_aac(trimfiles, silent):
-    if silent:
-        silentstr = '--silent'
-    else:
-        silentstr = ''
     for file in trimfiles:
         outfile = f"{os.path.splitext(file)[0]}.aac"
-        subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", silentstr, "-o", outfile])
+        if silent:
+            subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", '--silent', "-o", outfile])
+        else:
+            subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", "-o", outfile])
+        
 
 def mpls_audio(mplsdict, nocleanup, silent):
     cliplist = mplsdict['clip']
