@@ -72,3 +72,4 @@ ap.MPLSSource(mplsdict=mpls, trimlist=audiotrims, noflac=True, silent=False)
 
 ## Tips
 * For a truly silent experience with eac3to, delete the `success.wav` and `error.wav` files in your install directory
+* To only process audio one time from VapourSynth, comment out the AudioProcessor line until you're ready, then either run the script through vspipe or a GUI like VSEdit.
