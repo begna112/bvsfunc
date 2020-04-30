@@ -37,16 +37,18 @@ def extract_tracks_as_wav(infile, silent):
             extract_file = f"{out_path_prefix}_{index}.wav"
             if silent:
                 with open(os.devnull, "w") as f:
-                    subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file], stdout=f)
+                    subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
             else:
                 subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file])
             extracted_tracks.append(extract_file)
 
     return extracted_tracks, framerate, framenum
 
-def sox_trim(infile, outfile, trim, framenum, SPF):
+def sox_trim(infile, outfile, trim, framenum, SPF, silent):
     infile = os.path.normpath(infile)
     tfm = sox.Transformer()
+    if silent:
+        tfm.set_globals(verbosity=0)
     startframe,endframe = trim[0],trim[1]
     if startframe is None:
         startframe = 0
@@ -63,7 +65,7 @@ def sox_trim(infile, outfile, trim, framenum, SPF):
     tfm.trim(start_time, end_time)
     tfm.build(infile,outfile)
 
-def trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum):
+def trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, silent):
     framerate = Fraction(framerate)
     SPF = float(1.0 / framerate)
     trimfiles = []
@@ -76,13 +78,15 @@ def trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum):
             for index, trim in enumerate(trimlist, start=1):
                 temp_outfile = f"{out_path_prefix}_temp{index}.wav"
                 temp_outfiles.append(temp_outfile)
-                sox_trim(track, temp_outfile, trim, framenum, SPF)
+                sox_trim(track, temp_outfile, trim, framenum, SPF, silent)
             cbn = sox.Combiner()
+            if silent:
+                cbn.set_globals(verbosity=0)
             formats = [ 'wav' for file in temp_outfiles ]
             cbn.set_input_format(file_type=formats)
             cbn.build(temp_outfiles, outfile, 'concatenate')
         elif type(trimlist[0]) is int or type(trimlist[0]) is type(None):
-            sox_trim(track, outfile, trimlist, framenum, SPF)
+            sox_trim(track, outfile, trimlist, framenum, SPF, silent)
     return trimfiles, temp_outfiles
 
 def cleanup_temp_files(files):
@@ -100,7 +104,7 @@ def encode_flac(trimfiles, silent):
     for file in trimfiles:
         outfile = f"{os.path.splitext(file)[0]}.flac"
         if silent:
-            subprocess.run(["flac", file, "-8", '--silent', "--force", "-o", outfile])
+            subprocess.run(["flac", file, "-8", '--silent', "--force", "-o", outfile],creationflags=subprocess.CREATE_NO_WINDOW)
         else:
             subprocess.run(["flac", file, "-8", "--force", "-o", outfile])
         
@@ -109,7 +113,7 @@ def encode_aac(trimfiles, silent):
     for file in trimfiles:
         outfile = f"{os.path.splitext(file)[0]}.aac"
         if silent:
-            subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", '--silent', "-o", outfile])
+            subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", '--silent', "-o", outfile],creationflags=subprocess.CREATE_NO_WINDOW)
         else:
             subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", "-o", outfile])
         
@@ -133,6 +137,8 @@ def mpls_audio(mplsdict, nocleanup, silent):
         for i in range(len(concat_files[0])):
             combine_files = [ concat_files[j][i] for j in range(len(concat_files)) ]
             cbn = sox.Combiner()
+            if silent:
+                cbn.set_globals(verbosity=0)
             formats = [ 'wav' for file in extracted_tracks ]
             cbn.set_input_format(file_type=formats)
             outfile = f"{out_path_prefix}_{i+2}_concat.wav"
@@ -149,7 +155,7 @@ def mpls_audio(mplsdict, nocleanup, silent):
 def AudioSource(infile, trimlist=None, framenum=None, framerate=None, noflac=False, noaac=False, nocleanup=False, silent=True):
     if trimlist is not None:
         trimlist = literal_eval(trimlist)
-        trimfiles, temp_outfiles = trim_tracks_as_wav(infile, trimlist, framerate, framenum)
+        trimfiles, temp_outfiles = trim_tracks_as_wav(infile, trimlist, framerate, framenum, silent)
     else:
         trimfiles = infile
 
@@ -194,7 +200,7 @@ def VideoSource(infile=None, trimlist=None, framenum=None, framerate=None, nofla
 
     if trimlist is not None:
         trimlist = literal_eval(trimlist)
-        trimfiles, temp_outfiles = trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum)
+        trimfiles, temp_outfiles = trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, silent)
     else:
         trimfiles = extracted_tracks
 
