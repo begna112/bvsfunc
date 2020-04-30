@@ -5,9 +5,12 @@ AudioProcessor extracts audio sources from a video, audio, or blu-ray mpls sourc
 ## Dependencies 
 * [pysox](https://github.com/rabitt/pysox)
 * [ffprobe-python](https://github.com/gbstack/ffprobe-python)
-* [ffmpeg/ffprobe](https://www.ffmpeg.org/) in your PATH
-* [sox](http://sox.sourceforge.net/) in your PATH
-* [eac3to](https://forum.doom9.org/showthread.php?t=125966) in your PATH
+
+### PATH Executable Dependencies
+* [ffmpeg/ffprobe](https://www.ffmpeg.org/)
+* [sox](http://sox.sourceforge.net/)
+* [eac3to](https://forum.doom9.org/showthread.php?t=125966)
+* [qaac](https://sites.google.com/site/qaacpage/)
 
 ## Arguments
 * `-I, --infile` : `[string]` : The full filepath which contains audio to process. Can be a video or audio file. Only one source type can be spcified, infile or mplsdict. (default infile)
