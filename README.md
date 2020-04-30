@@ -39,7 +39,8 @@ py -3 AudioProcessor.py -I "C:\path\to\video.m2ts" -T "[0,764]" --silent
 
 # Audio source example
 # framerate, framenum are required if you want to trim
-py -3 AudioProcessor.py -I "C:\path\to\video.m2ts" -T "[0,764]" -N 30000 -F "24000/1001" --silent
+# audio sources are first extracted to wav before processing
+py -3 AudioProcessor.py -I "C:\path\to\video.aac" -T "[0,764]" -N 30000 -F "24000/1001" --silent
 
 ```
 
