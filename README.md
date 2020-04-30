@@ -63,7 +63,7 @@ ap.VideoSource(infile=filepath, trimlist=autotrims, noflac=True, silent=True)
 # mpls example
 # Source must be a full path
 filepath = r"E:\BD_VIDEO"
-mpls = core.mpls.Read(src, 2)
+mpls = core.mpls.Read(filepath, 2)
 src = core.std.Splice([core.lsmas.LWLibavSource(mpls['clip'][i]) for i in range(mpls['count'])])
 src = src[:500] + src[1000:2000]
 audiotrims = "[[None,500],[1000,2000]]"
