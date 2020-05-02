@@ -6,7 +6,8 @@ bvsfunc, a collection of VapourSynth functions and wrappers written and/or "borr
 
 Full information on how every function/wrapper works and specific dependencies can be found in the `documentation <https://bvsfunc.readthedocs.io/en/latest/>`_.
 
-## How to install
+How to install
+--------------
 
 Install with `python3 setup.py install`.
 
