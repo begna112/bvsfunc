@@ -13,8 +13,8 @@ Functions
 .. autosummary::
 
    bvsfunc.mods.DescaleAAMod
-   bvsfunc.util.video_source
-   bvsfunc.util.mpls_source
+   bvsfunc.util.ap_video_source
+   bvsfunc.util.ap_mpls_source
 
 ============
 bvsfunc.mods
@@ -56,7 +56,7 @@ AudioProcessor Examples
     process = False
     if process:
         audiotrims = [[None,500],[1000,2000]]
-        files = bvs.util.video_source(infile=filepath, trimlist=autotrims, noflac=True, silent=True)
+        files = bvs.util.ap_video_source(infile=filepath, trimlist=autotrims, noflac=True, silent=True)
 
     # mpls example
     filepath = r"E:\BD_VIDEO"
@@ -66,7 +66,7 @@ AudioProcessor Examples
     process = False
     if process:
         audiotrims = [[None,500],[1000,2000]]
-        files = bvs.util.mpls_source(mplsdict=mpls, trimlist=audiotrims, noflac=True, silent=False)
+        files = bvs.util.ap_mpls_source(mplsdict=mpls, trimlist=audiotrims, noflac=True, silent=False)
 
 AudioProcessor Tips
 -----------------------

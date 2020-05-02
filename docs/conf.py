@@ -177,7 +177,7 @@ html_static_path = ['_static']
 
 autosummary_generate = True
 
-autodoc_mock_imports = ["vsutil", "vapoursynth","sox","ffprobe-python", "fvsfunc", "nnedi3_resample", "functools"]
+autodoc_mock_imports = ["vsutil", "vapoursynth"]
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.

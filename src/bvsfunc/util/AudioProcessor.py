@@ -236,7 +236,7 @@ def mpls_source(mplsdict, trimlist=None, framenum=None, framerate=None, noflac=F
     """
     infile, framerate, framenum = _mpls_audio(mplsdict, nocleanup, silent)
 
-    outfiles = video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
+    outfiles = ap_video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
     
     return outfiles
 
@@ -380,9 +380,9 @@ def _main():
     if infile and mplsdict:
         raise SystemExit('You must spcify only one input type, infile or mplsdict.')
     elif infile:
-        video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
+        ap_video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
     elif mplsdict:
-        mpls_source(mplsdict, trimlist, framenum, framerate, noflac, noaac, silent)
+        ap_mpls_source(mplsdict, trimlist, framenum, framerate, noflac, noaac, silent)
 
 if __name__ == "__main__":
     _main()

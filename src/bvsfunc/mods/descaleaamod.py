@@ -1,9 +1,4 @@
-import vapoursynth as vs
-import fvsfunc as fvf
-import nnedi3_resample as nnrs
-import re
-from functools import partial
-core = vs.core
+
 
 def DescaleAAMod(src, w=1280, h=720, thr=10, kernel='bilinear', b=1/3, c=1/3, taps=3,
               expand=3, inflate=3, showmask=False):
@@ -45,6 +40,12 @@ def DescaleAAMod(src, w=1280, h=720, thr=10, kernel='bilinear', b=1/3, c=1/3, ta
     :return: The filtered video
     :rtype: VideoNode
     """
+    import vapoursynth as vs
+    import fvsfunc as fvf
+    import nnedi3_resample as nnrs
+    import re
+    from functools import partial
+    core = vs.core  
 
     if kernel.lower().startswith('de'):
         kernel = kernel[2:]

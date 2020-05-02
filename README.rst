@@ -17,7 +17,7 @@ Functions can be loaded into VS...
 
     import bvsfunc as bvs
 
-    bvs.util.video_source
+    bvs.util.ap_video_source
     bvs.mods.DescaleAAMod
     ...
 
