@@ -2,18 +2,27 @@
 bvsfunc
 =======
 
+bvsfunc, a collection of VapourSynth functions and wrappers written and/or "borrowed" by begna112. This README is stolen from LightArrowsEXE.
 
-Add a short description here!
+Full information on how every function/wrapper works and specific dependencies can be found in the `documentation <https://bvsfunc.readthedocs.io/en/latest/>`_.
 
+## How to install
 
-Description
-===========
+Install with `python3 setup.py install`.
 
-A longer description of your project goes here...
+Functions can be loaded into VS...
 
+.. code-block:: python
 
-Note
-====
+    import bvsfunc as bvs
 
-This project has been set up using PyScaffold 3.2.3. For details and usage
-information on PyScaffold see https://pyscaffold.org/.
+    bvs.util.AudioProcessor
+    bvs.mods.DescaleAAMod
+    ...
+
+or accessed via the commandline...
+
+.. code-block:: python
+
+    $ > AudioProcessor -h
+
