@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 0.0.2
+===========
+
+- updated function names globally
+
 Version 0.0.1
 ===========
 
