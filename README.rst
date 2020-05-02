@@ -17,13 +17,13 @@ Functions can be loaded into VS...
 
     import bvsfunc as bvs
 
-    bvs.util.AudioProcessor
+    bvs.util.video_source
     bvs.mods.DescaleAAMod
     ...
 
 or accessed via the commandline...
 
-.. code-block:: python
+.. code-block:: console
 
     $ > AudioProcessor -h
 
