@@ -236,11 +236,7 @@ def mpls_source(mplsdict, trimlist=None, framenum=None, framerate=None, noflac=F
     """
     infile, framerate, framenum = _mpls_audio(mplsdict, nocleanup, silent)
 
-    # if len(infile) > 1:
-    #     outfiles = AudioSource(infile, trimlist, framenum, framerate, noflac, noaac, silent)
-    # else:
-    #     outfiles = VideoSource(infile, trimlist, framenum, framerate, noflac, noaac, silent)
-    outfiles = VideoSource(infile, trimlist, framenum, framerate, noflac, noaac, silent)
+    outfiles = video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
     
     return outfiles
 
