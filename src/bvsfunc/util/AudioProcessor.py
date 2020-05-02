@@ -249,7 +249,18 @@ def video_source(infile, trimlist=None, framenum=None, framerate=None, noflac=Fa
 
         Format: [[inclusive,exclusive],...].
 
-        Examples: [100,500] | [None,500] | [100,None] | [[None,500],[1000,2000],[100,None]] | [-1000,None] | [None,-24].
+        Examples: 
+            trimlist = [100,500]
+
+            trimlist = [None,500]
+
+            trimlist = [100,None]
+
+            trimlist = [[None,500],[1000,2000],[100,None]]
+
+            trimlist = [-1000,None]
+
+            trimlist = [None,-24]
 
         Note: Trims are absolute references to the source, not relative to each other.
 
