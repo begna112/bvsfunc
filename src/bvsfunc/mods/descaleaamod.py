@@ -16,8 +16,7 @@ def DescaleAAMod(src: vs.VideoNode,
                  c: Union[float, Fraction] = Fraction(1, 2),
                  taps: int = 4,
                  expand: int = 3, inflate: int = 3,
-                 showmask: bool = False,
-                 **upscale_args) -> vs.VideoNode:
+                 showmask: bool = False) -> vs.VideoNode:
     """
     Mod of DescaleAA to use nnedi3_resample, which produces sharper results than nnedi3 rpow2.
 
