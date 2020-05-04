@@ -1,7 +1,7 @@
 import re
 from fractions import Fraction
 from functools import partial
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 from vsutil import get_w
 
