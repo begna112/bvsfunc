@@ -65,8 +65,8 @@ def DescaleAAMod(src: vs.VideoNode,
     ow = src.width
     oh = src.height
 
-    if width is None:
-        width = get_w(h, src.width/src.height)
+    if w is None:
+        w = get_w(h, src.width/src.height)
 
     bits = src.format.bits_per_sample
     sample_type = src.format.sample_type
