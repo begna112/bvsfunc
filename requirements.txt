@@ -16,4 +16,5 @@
 # scipy==1.0
 #
 Sphinx==3.0.3
-VapourSynth==48
+VapourSynth>=48
+sox>=0.4.0

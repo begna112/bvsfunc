@@ -4,6 +4,7 @@ import subprocess
 import argparse
 import os
 import shutil
+import datetime
 from fractions import Fraction
 
 
@@ -25,26 +26,40 @@ def _extract_tracks_as_wav(infile, silent):
     for stream in metadata.streams:
         if stream.is_video():
             try:
-                duration = stream.duration
-            except AttributeError:
-                duration = None
+                dur = metadata.metadata['Duration']
+                date_time = datetime.datetime.strptime(dur, "%H:%M:%S.%f")
+                a_timedelta = date_time - datetime.datetime(1900, 1, 1)
+                seconds = a_timedelta.total_seconds()
+                duration = seconds
+            except:
+                try:
+                    duration = stream.duration
+                except AttributeError:
+                    duration = None
             try:
                 framerate = stream.r_frame_rate
             except AttributeError:
                 framerate = None
             try:
                 framenum = math.ceil(float(duration) * Fraction(framerate))
-            except AttributeError:
+            except:
                 framenum = None
         if stream.is_audio():
             if infile_ext is not ".wav":
                 index = str(int(stream.index) + 1)
+                index_f = str(int(stream.index))
                 extract_file = f"{out_path_prefix}_{index}.wav"
                 if silent:
                     with open(os.devnull, "w") as f:
-                        subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                        if stream.codec_name != "aac":
+                            subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                        else:
+                            subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
-                    subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file])
+                    if stream.codec_name != "aac":
+                        subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file])
+                    else:
+                        subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file])
                 extracted_tracks.append(extract_file)
             else:
                 extracted_tracks.append(infile)
@@ -236,7 +251,7 @@ def mpls_source(mplsdict, trimlist=None, framenum=None, framerate=None, noflac=F
     """
     infile, framerate, framenum = _mpls_audio(mplsdict, nocleanup, silent)
 
-    outfiles = ap_video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
+    outfiles = video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
     
     return outfiles
 
@@ -318,6 +333,7 @@ def video_source(infile, trimlist=None, framenum=None, framerate=None, noflac=Fa
         trimfiles, temp_outfiles = _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, silent)
     else:
         trimfiles = extracted_tracks
+        temp_outfiles = None
 
     outfiles = []
     if not noflac:
@@ -328,7 +344,8 @@ def video_source(infile, trimlist=None, framenum=None, framerate=None, noflac=Fa
     if not nocleanup:
         _cleanup_temp_files(extracted_tracks)
         _cleanup_temp_files(trimfiles)
-        _cleanup_temp_files(temp_outfiles)
+        if temp_outfiles is not None:
+            _cleanup_temp_files(temp_outfiles)
     
     return outfiles
     
