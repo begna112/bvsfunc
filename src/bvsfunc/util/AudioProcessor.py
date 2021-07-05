@@ -6,9 +6,10 @@ import os
 import shutil
 import datetime
 from fractions import Fraction
+from typing import *
 
 
-def _extract_tracks_as_wav(infile, silent):
+def _extract_tracks_as_wav(infile, out_prefix, silent):
     try:
         from ffprobe import FFProbe
     except ModuleNotFoundError:
@@ -18,7 +19,7 @@ def _extract_tracks_as_wav(infile, silent):
     except ModuleNotFoundError:
         raise
 
-    out_path_prefix = os.path.splitext(infile)[0]
+    out_path_prefix = out_prefix #os.path.splitext(infile)[0]
     infile_ext = os.path.splitext(infile)[1]
     metadata = FFProbe(infile)
     extracted_tracks = []
@@ -197,7 +198,7 @@ def _mpls_audio(mplsdict, nocleanup, silent):
         outfile = infiles
         return outfile, None, None
 
-def mpls_source(mplsdict, trimlist=None, framenum=None, framerate=None, noflac=False, noaac=False, nocleanup=False, silent=True):
+def mpls_source(mplsdict:str, trimlist:Union[List[Optional[int]], List[List[Optional[int]]]]=None, out_file:Optional[str]=None, out_dir:Optional[str]=None, framenum:Optional[int]=None, framerate:Optional[Fraction]=None, noflac:Optional[bool]=False, noaac:Optional[bool]=False, nocleanup:Optional[bool]=False, silent:Optional[bool]=True):
     """
     Processes audio from a given mpls file. Functions include trimming losslessly and encoding to flac and/or aac. 
     Will concatonate the aligned audio streams when mpls defines multiple video files.
@@ -226,6 +227,10 @@ def mpls_source(mplsdict, trimlist=None, framenum=None, framerate=None, noflac=F
     :type mplsdict: [type]
     :param trimlist: A list or a list of lists of trims following python slice syntax, defaults to None.
     :type trimlist: list, optional
+    :param out_file: A string prefix to name the output files with.
+    :type out_file: string
+    :param out_dir: A string path for the file output directory. Defaults the script file location. Requires the string format to be: r"path"
+    :type out_dir: string
     :param framenum: Total number of frames in your clip. Overrides automatic detection.
         Some sources will not include duration information in their metadata. 
         In these cases, you will need to specify it. 
@@ -255,7 +260,7 @@ def mpls_source(mplsdict, trimlist=None, framenum=None, framerate=None, noflac=F
     
     return outfiles
 
-def video_source(infile, trimlist=None, framenum=None, framerate=None, noflac=False, noaac=False, nocleanup=False, silent=True):
+def video_source(infile:str, trimlist:Union[List[Optional[int]], List[List[Optional[int]]]]=None, out_file:Optional[str]=None, out_dir:Optional[str]=None, framenum:Optional[int]=None, framerate:Optional[Fraction]=None, noflac:Optional[bool]=False, noaac:Optional[bool]=False, nocleanup:Optional[bool]=False, silent:Optional[bool]=True):
     """
     Processes audio from a given video file. Functions include trimming losslessly and encoding to flac and/or aac.
 
@@ -281,6 +286,10 @@ def video_source(infile, trimlist=None, framenum=None, framerate=None, noflac=Fa
 
     :param infile: The full filepath to the video file containing audio to process.
     :type infile: string
+    :param out_file: A string prefix to name the output files with.
+    :type out_file: string
+    :param out_dir: A string path for the file output directory. Defaults the script file location. Requires the string format to be: r"path"
+    :type out_dir: string
     :param trimlist: A list or a list of lists of trims following python slice syntax, defaults to None.
     :type trimlist: list, optional
     :param framenum: Total number of frames in your clip. Overrides automatic detection.
@@ -311,9 +320,22 @@ def video_source(infile, trimlist=None, framenum=None, framerate=None, noflac=Fa
     infile = os.path.abspath(infile)
 
     if type(infile) is list:
-        extracted_tracks, framerate_temp, framenum_temp = _extract_tracks_as_wav(infile[0], silent)
+        infile = infile[0]
+
+    if out_file is None and out_dir is None:
+        out_dir = os.getcwd()
+        out_file = os.path.splitext(os.path.basename(infile))[0]
+    elif out_file is not None and out_dir is None:
+        out_dir = os.getcwd()
+    elif out_file is None and out_dir is not None:
+        out_dir = os.path.normpath(out_dir)
+        out_file = os.path.splitext(os.path.basename(infile))[0]
     else:
-        extracted_tracks, framerate_temp, framenum_temp = _extract_tracks_as_wav(infile, silent)
+        out_dir = os.path.normpath(out_dir)
+    print
+    out_prefix = os.path.normpath(f"{out_dir}/{out_file}")
+
+    extracted_tracks, framerate_temp, framenum_temp = _extract_tracks_as_wav(infile, out_prefix, silent)
 
     if framenum is None and framenum_temp is None:
         raise SystemExit('Source does not contain duration information. Specify it with the "framenum" argument.')
@@ -397,9 +419,9 @@ def _main():
     if infile and mplsdict:
         raise SystemExit('You must spcify only one input type, infile or mplsdict.')
     elif infile:
-        ap_video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
+        video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
     elif mplsdict:
-        ap_mpls_source(mplsdict, trimlist, framenum, framerate, noflac, noaac, silent)
+        mpls_source(mplsdict, trimlist, framenum, framerate, noflac, noaac, silent)
 
 if __name__ == "__main__":
     _main()

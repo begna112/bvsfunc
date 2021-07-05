@@ -15,6 +15,7 @@
 # numpy==1.13.3
 # scipy==1.0
 #
-Sphinx==3.0.3
+sphinx>=3.0.3
 VapourSynth>=48
 sox>=0.4.0
+ffprobe-python>=1.0.3
