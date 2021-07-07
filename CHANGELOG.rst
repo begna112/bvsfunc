@@ -2,7 +2,7 @@
 Changelog
 =========
 
-Version 0.0.3
+Version 1.0.0
 ===========
 
 - Added out_dir, and out_file parameters. 
