@@ -2,6 +2,17 @@
 Changelog
 =========
 
+Version 0.0.3
+===========
+
+- Added out_dir, and out_file parameters. 
+- Changed default out_dir to be the location of the script file (current working directory), rather than video file location.
+- Added support for automatically trimming in the case where the video has a metadata delay 
+  - ie: -42/-83ms delay from a streaming source, which is an industray standard not always honored
+  - mediainfo detects this as a negative delay relative to video
+- Add type hinting
+- Updated requirements.txt for installing pip dependencies
+
 Version 0.0.2
 ===========
 

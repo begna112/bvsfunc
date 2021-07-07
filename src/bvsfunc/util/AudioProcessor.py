@@ -45,6 +45,10 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
                 framenum = math.ceil(float(duration) * Fraction(framerate))
             except:
                 framenum = None
+            try:
+                offset_time = float(stream.start_time)
+            except:
+                offset_time = float(0)
         if stream.is_audio():
             if infile_ext is not ".wav":
                 index = str(int(stream.index) + 1)
@@ -67,9 +71,9 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
                 framenum = None
                 framerate = None
 
-    return extracted_tracks, framerate, framenum
+    return extracted_tracks, framerate, framenum, offset_time
 
-def _sox_trim(infile, outfile, trim, framenum, SPF, silent):
+def _sox_trim(infile, outfile, trim, framenum, offset_time, SPF, silent):
     try:
         import sox
     except ModuleNotFoundError:
@@ -87,12 +91,12 @@ def _sox_trim(infile, outfile, trim, framenum, SPF, silent):
         endframe = framenum
     elif endframe < 0:
         endframe = framenum + endframe
-    start_time = SPF * float(startframe)
+    start_time = SPF * float(startframe + round(offset_time / SPF))
     end_time = SPF * float(endframe)
     tfm.trim(start_time, end_time)
     tfm.build(infile,outfile)
 
-def _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, silent):
+def _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, offset_time, silent):
     try:
         import sox
     except ModuleNotFoundError:
@@ -109,7 +113,7 @@ def _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, silent)
             for index, trim in enumerate(trimlist, start=1):
                 temp_outfile = f"{out_path_prefix}_temp{index}.wav"
                 temp_outfiles.append(temp_outfile)
-                _sox_trim(track, temp_outfile, trim, framenum, SPF, silent)
+                _sox_trim(track, temp_outfile, trim, framenum, offset_time, SPF, silent)
             cbn = sox.Combiner()
             if silent:
                 cbn.set_globals(verbosity=0)
@@ -117,7 +121,7 @@ def _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, silent)
             cbn.set_input_format(file_type=formats)
             cbn.build(temp_outfiles, outfile, 'concatenate')
         elif type(trimlist[0]) is int or type(trimlist[0]) is type(None):
-            _sox_trim(track, outfile, trimlist, framenum, SPF, silent)
+            _sox_trim(track, outfile, trimlist, framenum, offset_time, SPF, silent)
     return trimfiles, temp_outfiles
 
 def _cleanup_temp_files(files):
@@ -335,7 +339,7 @@ def video_source(infile:str, trimlist:Union[List[Optional[int]], List[List[Optio
     print
     out_prefix = os.path.normpath(f"{out_dir}/{out_file}")
 
-    extracted_tracks, framerate_temp, framenum_temp = _extract_tracks_as_wav(infile, out_prefix, silent)
+    extracted_tracks, framerate_temp, framenum_temp, offset_time = _extract_tracks_as_wav(infile, out_prefix, silent)
 
     if framenum is None and framenum_temp is None:
         raise SystemExit('Source does not contain duration information. Specify it with the "framenum" argument.')
@@ -352,7 +356,7 @@ def video_source(infile:str, trimlist:Union[List[Optional[int]], List[List[Optio
     if trimlist is not None:
         if type(trimlist[0]) is list and len(trimlist) == 1:
             trimlist = trimlist[0]
-        trimfiles, temp_outfiles = _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, silent)
+        trimfiles, temp_outfiles = _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, offset_time, silent)
     else:
         trimfiles = extracted_tracks
         temp_outfiles = None
