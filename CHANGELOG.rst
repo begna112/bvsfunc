@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.0.2
+===========
+
+- Added hacky fix for m2ts files in regards to start_time and audio/video track delays. Just set delay to 0.
+
 Version 1.0.0
 ===========
 
