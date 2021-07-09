@@ -46,11 +46,16 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
             except:
                 framenum = None
             try:
-                offset_time = float(stream.start_time)
+                # hacky fix for blurays, which seem to have massive start_time tags. 
+                # Probably has something to do with BDMV structure
+                if infile_ext != ".m2ts":
+                    offset_time = float(stream.start_time)
+                else:
+                    offset_time = float(0)
             except:
                 offset_time = float(0)
         if stream.is_audio():
-            if infile_ext is not ".wav":
+            if infile_ext != ".wav":
                 index = str(int(stream.index) + 1)
                 index_f = str(int(stream.index))
                 extract_file = f"{out_path_prefix}_{index}.wav"
