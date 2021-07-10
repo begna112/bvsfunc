@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.0.3
+===========
+
+- change output to single list of files, instead of list of lists.
+
 Version 1.0.2
 ===========
 

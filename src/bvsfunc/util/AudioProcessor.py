@@ -368,9 +368,9 @@ def video_source(infile:str, trimlist:Union[List[Optional[int]], List[List[Optio
 
     outfiles = []
     if not noflac:
-        outfiles.append(_encode_flac(trimfiles, silent))
+        outfiles.extend(_encode_flac(trimfiles, silent))
     if not noaac:
-        outfiles.append(_encode_aac(trimfiles, silent))
+        outfiles.extend(_encode_aac(trimfiles, silent))
     
     if not nocleanup:
         _cleanup_temp_files(extracted_tracks)
