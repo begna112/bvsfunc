@@ -4,16 +4,23 @@ import subprocess
 import argparse
 import os
 import shutil
-import datetime
+# import datetime
 from fractions import Fraction
 from typing import *
 
+# This is due to how mediainfo reports framrates. others may need to be added
+FRAMERATE_MAP = {
+    '23.976': '24000/1001',
+    '29.97': '30000/1001',
+    '25.000': '25/1'
+}
 
 def _extract_tracks_as_wav(infile, out_prefix, silent):
     try:
-        from ffprobe import FFProbe
+        # from ffprobe import FFProbe
+        from pymediainfo import MediaInfo
     except ModuleNotFoundError:
-        raise ModuleNotFoundError("_extract_tracks_as_wav: missing dependency 'ffprobe'")
+        raise ModuleNotFoundError("_extract_tracks_as_wav: missing dependency'mediainfo'")
     try:
         import math
     except ModuleNotFoundError:
@@ -21,60 +28,103 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
 
     out_path_prefix = out_prefix #os.path.splitext(infile)[0]
     infile_ext = os.path.splitext(infile)[1]
-    metadata = FFProbe(infile)
     extracted_tracks = []
-
-    for stream in metadata.streams:
-        if stream.is_video():
-            try:
-                dur = metadata.metadata['Duration']
-                date_time = datetime.datetime.strptime(dur, "%H:%M:%S.%f")
-                a_timedelta = date_time - datetime.datetime(1900, 1, 1)
-                seconds = a_timedelta.total_seconds()
-                duration = seconds
-            except:
-                try:
-                    duration = stream.duration
-                except AttributeError:
-                    duration = None
-            try:
-                framerate = stream.r_frame_rate
-            except AttributeError:
-                framerate = None
-            try:
-                framenum = math.ceil(float(duration) * Fraction(framerate))
-            except:
-                framenum = None
-            try:
-                # hacky fix for blurays, which seem to have massive start_time tags. 
-                # Probably has something to do with BDMV structure
-                if infile_ext != ".m2ts":
-                    offset_time = float(stream.start_time)
-                else:
-                    offset_time = float(0)
-            except:
+    media_info = MediaInfo.parse(infile)
+    stream_id = 0
+    for track in media_info.tracks:
+        if track.track_type == "Video":
+            if track.framerate_den is None or track.framerate_num is None:
+                framenum = int(track.frame_count)
+                framerate = FRAMERATE_MAP[track.frame_rate]
+            else:
+                framerate_num = int(track.framerate_num)
+                framerate_den = int(track.framerate_den)
+                framerate = f"{framerate_num}/{framerate_den}"
+                framenum = int(track.frame_count)
+            stream_id += 1
+        elif track.track_type == "Audio":
+            if track.delay_relative_to_video is not None:
+                offset_time = float(int(track.delay_relative_to_video) / 1000)
+            else:
                 offset_time = float(0)
-        if stream.is_audio():
             if infile_ext != ".wav":
-                index = str(int(stream.index) + 1)
-                index_f = str(int(stream.index))
-                extract_file = f"{out_path_prefix}_{index}.wav"
+                index_eac3to = int(stream_id) + 1
+                index_ffmpeg = stream_id
+                extract_file = f"{out_path_prefix}_{index_eac3to}.wav"
                 if silent:
                     with open(os.devnull, "w") as f:
-                        if stream.codec_name != "aac":
-                            subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                        if track.format != "AAC":
+                            subprocess.call(["eac3to", infile, "-log=NUL", f"{index_eac3to}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
                         else:
-                            subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                            subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_ffmpeg}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
-                    if stream.codec_name != "aac":
-                        subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file])
+                    if track.format != "AAC":
+                        subprocess.call(["eac3to", infile, "-log=NUL", f"{index_eac3to}:", extract_file])
                     else:
-                        subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file])
+                        subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_ffmpeg}", extract_file])
                 extracted_tracks.append(extract_file)
             else:
                 extracted_tracks.append(infile)
                 framenum = None
                 framerate = None
+            stream_id += 1
+        else:
+            stream_id += 1
+            pass
+
+    # retained for fallback purposes.
+    # metadata = FFProbe(infile)
+    # for stream in metadata.streams:
+    #     if stream.is_video():
+    #         try:
+    #             dur = metadata.metadata['Duration']
+    #             date_time = datetime.datetime.strptime(dur, "%H:%M:%S.%f")
+    #             a_timedelta = date_time - datetime.datetime(1900, 1, 1)
+    #             seconds = a_timedelta.total_seconds()
+    #             duration = seconds
+    #         except:
+    #             try:
+    #                 duration = stream.duration
+    #             except AttributeError:
+    #                 duration = None
+    #         try:
+    #             framerate = stream.r_frame_rate
+    #         except AttributeError:
+    #             framerate = None
+    #         try:
+    #             framenum = math.ceil(float(duration) * Fraction(framerate))
+    #         except:
+    #             framenum = None
+    #         try:
+    #             # hacky fix for blurays, which seem to have massive start_time tags. 
+    #             # Probably has something to do with BDMV structure
+    #             if infile_ext != ".m2ts":
+    #                 offset_time = float(stream.start_time)
+    #             else:
+    #                 offset_time = float(0)
+    #         except:
+    #             offset_time = float(0)
+    #     if stream.is_audio():
+    #         if infile_ext != ".wav":
+    #             index = str(int(stream.index) + 1)
+    #             index_f = str(int(stream.index))
+    #             extract_file = f"{out_path_prefix}_{index}.wav"
+    #             if silent:
+    #                 with open(os.devnull, "w") as f:
+    #                     if stream.codec_name != "aac":
+    #                         subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+    #                     else:
+    #                         subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+    #             else:
+    #                 if stream.codec_name != "aac":
+    #                     subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file])
+    #                 else:
+    #                     subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file])
+    #             extracted_tracks.append(extract_file)
+    #         else:
+    #             extracted_tracks.append(infile)
+    #             framenum = None
+    #             framerate = None
 
     return extracted_tracks, framerate, framenum, offset_time
 

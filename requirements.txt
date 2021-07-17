@@ -18,4 +18,5 @@
 sphinx>=3.0.3
 VapourSynth>=48
 sox>=0.4.0
-ffprobe-python>=1.0.3
+# ffprobe-python>=1.0.3
+pymediainfo>=5.1.0

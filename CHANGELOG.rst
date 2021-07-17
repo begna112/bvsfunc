@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.1.0
+===========
+
+- Changed ffprobe dependency to MediaInfo for better stream handling (fonts, chapters, etc)
+
 Version 1.0.3
 ===========
 

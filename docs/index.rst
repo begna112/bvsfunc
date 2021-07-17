@@ -34,7 +34,8 @@ AudioProcessor Dependencies
 ---------------------------
 
 * `pysox <https://github.com/rabitt/pysox>`_
-* `ffprobe-python <https://github.com/gbstack/ffprobe-python>`_
+~~* `ffprobe-python <https://github.com/gbstack/ffprobe-python>`_~~
+* `pymediainfo <https://github.com/sbraz/pymediainfo>`_
 
 AudioProcessor PATH Executable Dependencies
 -------------------------------------------
