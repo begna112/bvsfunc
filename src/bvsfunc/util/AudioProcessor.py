@@ -48,8 +48,8 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
             else:
                 offset_time = float(0)
             if infile_ext != ".wav":
-                index_eac3to = int(stream_id) + 1
-                index_ffmpeg = stream_id
+                index_eac3to = int(stream_id) 
+                index_ffmpeg = stream_id - 1
                 extract_file = f"{out_path_prefix}_{index_eac3to}.wav"
                 if silent:
                     with open(os.devnull, "w") as f:
@@ -146,7 +146,7 @@ def _sox_trim(infile, outfile, trim, framenum, offset_time, SPF, silent):
         endframe = framenum
     elif endframe < 0:
         endframe = framenum + endframe
-    start_time = SPF * float(startframe + round(offset_time / SPF))
+    start_time = SPF * float(startframe + round(abs(offset_time) / SPF))
     end_time = SPF * float(endframe)
     tfm.trim(start_time, end_time)
     tfm.build(infile,outfile)

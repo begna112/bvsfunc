@@ -2,6 +2,12 @@
 Changelog
 =========
 
+Version 1.1.1
+===========
+
+- mediainfo considers "general info" to be a track, always the first. 
+- offset in mediainfo is a negative value, so need to be absolute value when adding to start time.
+
 Version 1.1.0
 ===========
 
