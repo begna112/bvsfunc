@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.2.0
+===========
+
+- Added workaround for BDMV format (symlinking m2ts to temp directory) to prevent eac3to from detecting chapters.
+
 Version 1.1.1
 ===========
 

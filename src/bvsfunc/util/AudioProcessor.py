@@ -7,6 +7,7 @@ import shutil
 # import datetime
 from fractions import Fraction
 from typing import *
+from pathlib import Path,PurePath
 
 # This is due to how mediainfo reports framrates. others may need to be added
 FRAMERATE_MAP = {
@@ -14,6 +15,18 @@ FRAMERATE_MAP = {
     '29.97': '30000/1001',
     '25.000': '25/1'
 }
+
+def _create_symlink_for_sane_ripping_fuck_eac3to(infile):
+    file_purepath = PurePath(infile)
+    dir = file_purepath.parts[-2]
+    if dir == "STREAM":
+        import tempfile
+        temp = tempfile.gettempdir()
+        file_path = Path(f"{temp}\{file_purepath.parts[-1]}")
+        file_path.symlink_to(file_purepath)
+        return file_path.absolute() 
+    else:
+        return infile
 
 def _extract_tracks_as_wav(infile, out_prefix, silent):
     try:
@@ -26,6 +39,7 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
     except ModuleNotFoundError:
         raise
 
+    temp_file = _create_symlink_for_sane_ripping_fuck_eac3to(infile)
     out_path_prefix = out_prefix #os.path.splitext(infile)[0]
     infile_ext = os.path.splitext(infile)[1]
     extracted_tracks = []
@@ -48,20 +62,20 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
             else:
                 offset_time = float(0)
             if infile_ext != ".wav":
-                index_eac3to = int(stream_id) 
+                index_eac3to = stream_id
                 index_ffmpeg = stream_id - 1
                 extract_file = f"{out_path_prefix}_{index_eac3to}.wav"
                 if silent:
                     with open(os.devnull, "w") as f:
                         if track.format != "AAC":
-                            subprocess.call(["eac3to", infile, "-log=NUL", f"{index_eac3to}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                            subprocess.call(["eac3to", temp_file, "-log=NUL", f"{index_eac3to}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
                         else:
-                            subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_ffmpeg}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                            subprocess.call(["ffmpeg", "-i", temp_file, "-map", f"0:{index_ffmpeg}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
                     if track.format != "AAC":
-                        subprocess.call(["eac3to", infile, "-log=NUL", f"{index_eac3to}:", extract_file])
+                        subprocess.call(["eac3to", temp_file, "-log=NUL", f"{index_eac3to}:", extract_file])
                     else:
-                        subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_ffmpeg}", extract_file])
+                        subprocess.call(["ffmpeg", "-i", temp_file, "-map", f"0:{index_ffmpeg}", extract_file])
                 extracted_tracks.append(extract_file)
             else:
                 extracted_tracks.append(infile)
@@ -72,60 +86,7 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
             stream_id += 1
             pass
 
-    # retained for fallback purposes.
-    # metadata = FFProbe(infile)
-    # for stream in metadata.streams:
-    #     if stream.is_video():
-    #         try:
-    #             dur = metadata.metadata['Duration']
-    #             date_time = datetime.datetime.strptime(dur, "%H:%M:%S.%f")
-    #             a_timedelta = date_time - datetime.datetime(1900, 1, 1)
-    #             seconds = a_timedelta.total_seconds()
-    #             duration = seconds
-    #         except:
-    #             try:
-    #                 duration = stream.duration
-    #             except AttributeError:
-    #                 duration = None
-    #         try:
-    #             framerate = stream.r_frame_rate
-    #         except AttributeError:
-    #             framerate = None
-    #         try:
-    #             framenum = math.ceil(float(duration) * Fraction(framerate))
-    #         except:
-    #             framenum = None
-    #         try:
-    #             # hacky fix for blurays, which seem to have massive start_time tags. 
-    #             # Probably has something to do with BDMV structure
-    #             if infile_ext != ".m2ts":
-    #                 offset_time = float(stream.start_time)
-    #             else:
-    #                 offset_time = float(0)
-    #         except:
-    #             offset_time = float(0)
-    #     if stream.is_audio():
-    #         if infile_ext != ".wav":
-    #             index = str(int(stream.index) + 1)
-    #             index_f = str(int(stream.index))
-    #             extract_file = f"{out_path_prefix}_{index}.wav"
-    #             if silent:
-    #                 with open(os.devnull, "w") as f:
-    #                     if stream.codec_name != "aac":
-    #                         subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
-    #                     else:
-    #                         subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
-    #             else:
-    #                 if stream.codec_name != "aac":
-    #                     subprocess.call(["eac3to", infile, "-log=NUL", f"{index}:", extract_file])
-    #                 else:
-    #                     subprocess.call(["ffmpeg", "-i", infile, "-map", f"0:{index_f}", extract_file])
-    #             extracted_tracks.append(extract_file)
-    #         else:
-    #             extracted_tracks.append(infile)
-    #             framenum = None
-    #             framerate = None
-
+    temp_file.unlink(missing_ok=False)
     return extracted_tracks, framerate, framenum, offset_time
 
 def _sox_trim(infile, outfile, trim, framenum, offset_time, SPF, silent):
