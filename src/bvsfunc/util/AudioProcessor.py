@@ -26,7 +26,7 @@ def _create_symlink_for_sane_ripping_fuck_eac3to(infile):
         file_path.symlink_to(file_purepath)
         return file_path.absolute() 
     else:
-        return infile
+        return Path(infile).absolute()
 
 def _extract_tracks_as_wav(infile, out_prefix, silent):
     try:
@@ -68,9 +68,9 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
                 if silent:
                     with open(os.devnull, "w") as f:
                         if track.format != "AAC":
-                            subprocess.call(["eac3to", temp_file, "-log=NUL", f"{index_eac3to}:", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                            subprocess.call(["eac3to", temp_file, "-log=NUL", f"{index_eac3to}:", extract_file], stdout=f, creationflags=subprocess.CREATE_NO_WINDOW)
                         else:
-                            subprocess.call(["ffmpeg", "-i", temp_file, "-map", f"0:{index_ffmpeg}", extract_file], stdout=f ,creationflags=subprocess.CREATE_NO_WINDOW)
+                            subprocess.call(["ffmpeg", "-i", temp_file, "-map", f"0:{index_ffmpeg}", extract_file], stdout=f, creationflags=subprocess.CREATE_NO_WINDOW)
                 else:
                     if track.format != "AAC":
                         subprocess.call(["eac3to", temp_file, "-log=NUL", f"{index_eac3to}:", extract_file])
@@ -86,7 +86,9 @@ def _extract_tracks_as_wav(infile, out_prefix, silent):
             stream_id += 1
             pass
 
-    temp_file.unlink(missing_ok=False)
+    if (Path.is_symlink(temp_file)):
+        temp_file.unlink(missing_ok=False)
+
     return extracted_tracks, framerate, framenum, offset_time
 
 def _sox_trim(infile, outfile, trim, framenum, offset_time, SPF, silent):

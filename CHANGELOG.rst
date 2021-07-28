@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.2.1
+===========
+
+- Fixed issue with unlinking file in case where symlink wasn't used.
+
 Version 1.2.0
 ===========
 
