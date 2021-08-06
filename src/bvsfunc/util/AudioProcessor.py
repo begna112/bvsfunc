@@ -23,6 +23,9 @@ def _create_symlink_for_sane_ripping_fuck_eac3to(infile):
         import tempfile
         temp = tempfile.gettempdir()
         file_path = Path(f"{temp}\{file_purepath.parts[-1]}")
+        # remove existing links in case a previous cut was interrupted. 
+        if (Path.is_symlink(file_path)):
+            file_path.unlink(missing_ok=False)
         file_path.symlink_to(file_purepath)
         return file_path.absolute() 
     else:

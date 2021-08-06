@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 1.2.2
+===========
+
+- Workaround for zombie temp symlinks from interrupted audioprocessor runs.
+
 Version 1.2.1
 ===========
 
