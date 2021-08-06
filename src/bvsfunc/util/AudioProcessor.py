@@ -16,8 +16,64 @@ FRAMERATE_MAP = {
     '25.000': '25/1'
 }
 
-def _create_symlink_for_sane_ripping_fuck_eac3to(infile):
-    file_purepath = PurePath(infile)
+########################
+#  metadata functions  #
+########################
+
+def _get_metainfo(in_file):
+    try:
+        from pymediainfo import MediaInfo
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError("_extract_metainfo: missing dependency'mediainfo'")
+    media_info = MediaInfo.parse(in_file)
+    extracted_metainfo = {
+        "framerate": None,
+        "framenum": None,
+        "audio_tracks": []
+    }
+    stream_id = 0
+    for track in media_info.tracks:
+        if track.track_type == "Video":
+            if track.framerate_den is None or track.framerate_num is None:
+                extracted_metainfo["framenum"] = int(track.frame_count)
+                extracted_metainfo["framerate"] = FRAMERATE_MAP[track.frame_rate]
+            else:
+                framerate_num = int(track.framerate_num)
+                framerate_den = int(track.framerate_den)
+                extracted_metainfo["framerate"] = f"{framerate_num}/{framerate_den}"
+                extracted_metainfo["framenum"] = int(track.frame_count)
+            extracted_metainfo["duration"] = track.duration
+            stream_id += 1
+        elif track.track_type == "Audio":
+            audio_track = {"stream_id": stream_id}
+            if track.delay_relative_to_video is not None:
+                audio_track["offset_time"] = float(int(track.delay_relative_to_video) / 1000)
+            else:
+                audio_track["offset_time"] = float(0)
+            audio_track['format'] = track.format
+            extracted_metainfo["audio_tracks"].append(audio_track)
+            stream_id += 1
+        else:
+            stream_id += 1
+            pass
+    return extracted_metainfo
+
+def _build_extract_data(in_file, out_prefix):
+    extracted_metainfo = _get_metainfo(in_file)
+    for audio_track in extracted_metainfo["audio_tracks"]:
+        codecs = ['wav','flac','aac']
+        for ext in codecs:
+            audio_track[ext] = f"{str(out_prefix)}_{audio_track['stream_id']}_cut.{ext}"
+        audio_track['raw_wav'] = f"{str(out_prefix)}_{audio_track['stream_id']}.wav"
+
+    return extracted_metainfo
+
+##############################
+#  extract & trim functions  #
+##############################
+
+def _create_symlink_for_sane_ripping_fuck_eac3to(in_file):
+    file_purepath = PurePath(in_file)
     dir = file_purepath.parts[-2]
     if dir == "STREAM":
         import tempfile
@@ -29,77 +85,32 @@ def _create_symlink_for_sane_ripping_fuck_eac3to(infile):
         file_path.symlink_to(file_purepath)
         return file_path.absolute() 
     else:
-        return Path(infile).absolute()
+        return Path(in_file).absolute()
 
-def _extract_tracks_as_wav(infile, out_prefix, silent):
-    try:
-        # from ffprobe import FFProbe
-        from pymediainfo import MediaInfo
-    except ModuleNotFoundError:
-        raise ModuleNotFoundError("_extract_tracks_as_wav: missing dependency'mediainfo'")
-    try:
-        import math
-    except ModuleNotFoundError:
-        raise
+def _extract_tracks_as_wav(in_file, meta_info, overwrite, silent):
+    for track in meta_info['audio_tracks']:
+        extract_file = Path(track['raw_wav'])
+        if not Path(extract_file).exists() or overwrite:
+            temp_file = _create_symlink_for_sane_ripping_fuck_eac3to(in_file)
+            eac3to_cmds = ["eac3to", f"{temp_file}", "-log=NUL", f"{track['stream_id']}:", f"{extract_file}"]
+            ffmpeg_cmds = ["ffmpeg", "-i", f"{temp_file}", "-map", f"0:{track['stream_id'] - 1}", f"{extract_file}"]
+            subp_args = {}
+            subp_args |= {'args': eac3to_cmds} if track['format'] != "AAC" else {'args': ffmpeg_cmds}
+            subp_args |= {'stdout':subprocess.DEVNULL, 'creationflags':subprocess.CREATE_NO_WINDOW, 'shell':True} if silent else {'shell':True}
+            subprocess.call(**subp_args)
+            if (Path(temp_file).is_symlink()):
+                Path(temp_file).unlink(missing_ok=False)
+        elif not silent:
+            print(f"AudioProcessor: wav file exists and overwrite not specified.")
+            print(f"AudioProcessor: {extract_file}")
+    return 
 
-    temp_file = _create_symlink_for_sane_ripping_fuck_eac3to(infile)
-    out_path_prefix = out_prefix #os.path.splitext(infile)[0]
-    infile_ext = os.path.splitext(infile)[1]
-    extracted_tracks = []
-    media_info = MediaInfo.parse(infile)
-    stream_id = 0
-    for track in media_info.tracks:
-        if track.track_type == "Video":
-            if track.framerate_den is None or track.framerate_num is None:
-                framenum = int(track.frame_count)
-                framerate = FRAMERATE_MAP[track.frame_rate]
-            else:
-                framerate_num = int(track.framerate_num)
-                framerate_den = int(track.framerate_den)
-                framerate = f"{framerate_num}/{framerate_den}"
-                framenum = int(track.frame_count)
-            stream_id += 1
-        elif track.track_type == "Audio":
-            if track.delay_relative_to_video is not None:
-                offset_time = float(int(track.delay_relative_to_video) / 1000)
-            else:
-                offset_time = float(0)
-            if infile_ext != ".wav":
-                index_eac3to = stream_id
-                index_ffmpeg = stream_id - 1
-                extract_file = f"{out_path_prefix}_{index_eac3to}.wav"
-                if silent:
-                    with open(os.devnull, "w") as f:
-                        if track.format != "AAC":
-                            subprocess.call(["eac3to", temp_file, "-log=NUL", f"{index_eac3to}:", extract_file], stdout=f, creationflags=subprocess.CREATE_NO_WINDOW)
-                        else:
-                            subprocess.call(["ffmpeg", "-i", temp_file, "-map", f"0:{index_ffmpeg}", extract_file], stdout=f, creationflags=subprocess.CREATE_NO_WINDOW)
-                else:
-                    if track.format != "AAC":
-                        subprocess.call(["eac3to", temp_file, "-log=NUL", f"{index_eac3to}:", extract_file])
-                    else:
-                        subprocess.call(["ffmpeg", "-i", temp_file, "-map", f"0:{index_ffmpeg}", extract_file])
-                extracted_tracks.append(extract_file)
-            else:
-                extracted_tracks.append(infile)
-                framenum = None
-                framerate = None
-            stream_id += 1
-        else:
-            stream_id += 1
-            pass
-
-    if (Path.is_symlink(temp_file)):
-        temp_file.unlink(missing_ok=False)
-
-    return extracted_tracks, framerate, framenum, offset_time
-
-def _sox_trim(infile, outfile, trim, framenum, offset_time, SPF, silent):
+def _sox_trim(in_file, outfile, trim, framenum, offset_time, SPF, silent):
     try:
         import sox
     except ModuleNotFoundError:
         raise ModuleNotFoundError('AudioProcessor.VideoSource: missing sox dependency for trimming.')
-    infile = os.path.normpath(infile)
+    in_file = os.path.normpath(in_file)
     tfm = sox.Transformer()
     if silent:
         tfm.set_globals(verbosity=0)
@@ -115,338 +126,408 @@ def _sox_trim(infile, outfile, trim, framenum, offset_time, SPF, silent):
     start_time = SPF * float(startframe + round(abs(offset_time) / SPF))
     end_time = SPF * float(endframe)
     tfm.trim(start_time, end_time)
-    tfm.build(infile,outfile)
+    tfm.build(in_file,outfile)
 
-def _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, offset_time, silent):
+def _trim_tracks_as_wav(meta_info, trim_list, overwrite, silent):
     try:
         import sox
     except ModuleNotFoundError:
         raise ModuleNotFoundError('AudioProcessor.VideoSource: missing sox dependency for trimming.')
-    framerate = Fraction(framerate)
+    framerate = Fraction(meta_info['framerate'])
     SPF = float(1.0 / framerate)
-    trimfiles = []
-    temp_outfiles = []
-    for track in extracted_tracks:
-        out_path_prefix = os.path.splitext(track)[0]
-        outfile = f"{out_path_prefix}_cut.wav"
-        trimfiles.append(outfile)
-        if type(trimlist[0]) is list and len(trimlist) > 1:
-            for index, trim in enumerate(trimlist, start=1):
-                temp_outfile = f"{out_path_prefix}_temp{index}.wav"
-                temp_outfiles.append(temp_outfile)
-                _sox_trim(track, temp_outfile, trim, framenum, offset_time, SPF, silent)
-            cbn = sox.Combiner()
-            if silent:
-                cbn.set_globals(verbosity=0)
-            formats = [ 'wav' for file in temp_outfiles ]
-            cbn.set_input_format(file_type=formats)
-            cbn.build(temp_outfiles, outfile, 'concatenate')
-        elif type(trimlist[0]) is int or type(trimlist[0]) is type(None):
-            _sox_trim(track, outfile, trimlist, framenum, offset_time, SPF, silent)
-    return trimfiles, temp_outfiles
+    for track in meta_info['audio_tracks']:
+        temp_outfiles = []
+        raw_wav = track['raw_wav']
+        out_path_prefix = os.path.splitext(raw_wav)[0]
+        outfile = track['wav']
+        if not Path(outfile).exists() or overwrite:
+            if type(trim_list[0]) is list and len(trim_list) > 1:
+                for index, trim in enumerate(trim_list, start=1):
+                    temp_outfile = f"{out_path_prefix}_temp{index}.wav"
+                    temp_outfiles.append(temp_outfile)
+                    _sox_trim(raw_wav, temp_outfile, trim, meta_info['framenum'], track['offset_time'], SPF, silent)
+                cbn = sox.Combiner()
+                if silent:
+                    cbn.set_globals(verbosity=0)
+                formats = [ 'wav' for file in temp_outfiles ]
+                cbn.set_input_format(file_type=formats)
+                cbn.build(temp_outfiles, outfile, 'concatenate')
+            elif type(trim_list[0]) is int or type(trim_list[0]) is type(None):
+                _sox_trim(raw_wav, outfile, trim_list, meta_info['framenum'], track['offset_time'], SPF, silent)
+        elif not silent:
+            print(f"AudioProcessor: trimmed wav file exists and overwrite not specified.")
+            print(f"AudioProcessor: {outfile}")
+    _cleanup_temp_files(temp_outfiles)
+    return 
 
-def _cleanup_temp_files(files):
-    if type(files) is not list:
-        f = os.path.normpath(files)
-        if os.path.exists(f):
-            os.remove(f)
-    else:
-        for f in files:
-            f = os.path.normpath(f)
-            if os.path.exists(f):
-                os.remove(f)
+########################
+#  encoding functions  #
+########################
 
-def _encode_flac(trimfiles, silent):
+def _encode_flac(meta_info, overwrite, silent):
     dep = shutil.which("flac")
     if dep is None:
         raise SystemExit('flac encoder was not found in your PATH.')
-    outfiles = []
-    for file in trimfiles:
-        outfile = f"{os.path.splitext(file)[0]}.flac"
-        if silent:
-            subprocess.run(["flac", file, "-8", '--silent', "--force", "-o", outfile],creationflags=subprocess.CREATE_NO_WINDOW)
-        else:
-            subprocess.run(["flac", file, "-8", "--force", "-o", outfile])
-        outfiles.append(outfile)
-    return outfiles
-        
+    for track in meta_info['audio_tracks']:
+        wav = track['wav']
+        outfile = track['flac']
+        if not Path(outfile).exists() or overwrite:
+            flac_cmds = ["flac", wav, "-8", "--force", "-o", outfile]
+            if silent:
+                flac_cmds.insert(3,'--silent')
+            subp_args = {'args': flac_cmds}
+            subp_args |= {'stdout':subprocess.DEVNULL, 'creationflags':subprocess.CREATE_NO_WINDOW, 'shell':True} if silent else {'shell':True}
+            subprocess.call(**subp_args)
+        elif not silent:
+            print(f"AudioProcessor: flac file exists and overwrite not specified.")
+            print(f"AudioProcessor: {outfile}")
+    return
 
-def _encode_aac(trimfiles, silent):
+def _encode_aac(meta_info, overwrite, silent):
     dep = shutil.which("qaac")
     if dep is None:
         raise SystemExit('qaac encoder was not found in your PATH.')
-    outfiles = []
-    for file in trimfiles:
-        outfile = f"{os.path.splitext(file)[0]}.aac"
-        if silent:
-            subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", '--silent', "-o", outfile],creationflags=subprocess.CREATE_NO_WINDOW)
-        else:
-            subprocess.run(["qaac", file, "--adts", "-V 127", "--no-delay", "-o", outfile])
-        outfiles.append(outfile)
-    return outfiles    
+    for track in meta_info['audio_tracks']:
+        wav = track['wav']
+        outfile = track['aac']
+        if not Path(outfile).exists() or overwrite:
+            aac_cmds = ["qaac", wav, "--adts", "-V 127", "--no-delay", "-o", outfile]
+            if silent:
+                aac_cmds.insert(5,'--silent')
+            subp_args = {'args': aac_cmds}
+            subp_args |= {'stdout':subprocess.DEVNULL, 'creationflags':subprocess.CREATE_NO_WINDOW, 'shell':True} if silent else {'shell':True}
+            subprocess.call(**subp_args)
+        elif not silent:
+            print(f"AudioProcessor: aac file exists and overwrite not specified.")
+            print(f"AudioProcessor: {outfile}")
+    return    
 
-def _mpls_audio(mplsdict, nocleanup, silent):
-    cliplist = mplsdict['clip']
-    infiles = []
-    for clip in cliplist:
+#######################
+#  utility functions  #
+#######################
+
+def _cleanup_temp_files(files):
+    if type(files) is not list:
+        f = Path(files)
+        if f.exists():
+            Path.unlink(f)
+    else:
+        for f in files:
+            f = Path(f)
+            if f.exists():
+                Path.unlink(f)
+
+def _get_out_prefix(in_file, out_file, out_dir):
+    if out_file is None and out_dir is None:
+        out_dir = Path.cwd()
+        out_file = PurePath(PurePath(in_file).name).stem
+    elif out_file is not None and out_dir is None:
+        out_dir = Path.cwd()
+    elif out_file is None and out_dir is not None:
+        out_dir = Path(out_dir)
+        out_file = PurePath(PurePath(in_file).name).stem
+    else:
+        out_dir = Path(out_dir)
+    out_prefix = PurePath.joinpath(out_dir, out_file)
+    return Path(out_prefix)
+
+def _write_files(meta_info, no_flac, no_aac, no_wav, overwrite, silent):
+    missing_files_found = False
+    if overwrite:
+        return missing_files_found
+    for track in meta_info['audio_tracks']:
+        if not no_flac:
+            if not Path(track['flac']).exists():
+                missing_files_found = True
+                if not silent: print(f"{Path(track['flac'])} does not exist")
+            elif not silent:
+                print(f"{Path(track['flac'])} exists")
+        if not no_aac:
+            if not Path(track['aac']).exists():
+                missing_files_found = True
+                if not silent: print(f"{Path(track['aac'])} does not exist")
+            elif not silent:
+                print(f"{Path(track['aac'])} exists")
+        if not no_wav:
+            if not Path(track['wav']).exists():
+                missing_files_found = True
+                if not silent: print(f"{Path(track['wav'])} does not exist")
+            elif not silent:
+                print(f"{Path(track['wav'])} exists")
+    if not missing_files_found:
+        return missing_files_found
+    else:
+        return missing_files_found
+
+#########################
+#  core input handling  #
+#########################
+
+def _mpls_audio(mpls_dict, no_wav, overwrite, silent):
+    clip_list = mpls_dict['clip']
+    in_files = []
+    for clip in clip_list:
         if clip:
-            infile = str(clip, 'utf-8')
-            infile = os.path.normpath(infile)
-            infiles.append(infile)
+            in_file = str(clip, 'utf-8')
+            in_file = os.path.normpath(in_file)
+            in_files.append(in_file)
 
-    out_path_prefix = os.path.splitext(str(cliplist[0], 'utf-8'))[0]
+    out_path_prefix = os.path.splitext(str(clip_list[0], 'utf-8'))[0]
     outfiles = []
-    concat_files = []
-    if len(infiles) > 1:
+    if len(in_files) > 1:
         try:
             import sox
         except ModuleNotFoundError:
             raise ModuleNotFoundError('AudioProcessor.VideoSource: missing sox dependency for concatonating.')
-        for infile in infiles:
-            extracted_tracks, framerate, framenum = _extract_tracks_as_wav(infile, silent)
+        for in_file in in_files:
+            concat_files = []
+            extracted_tracks = video_source(in_file, no_flac=True, no_aac=True, no_wav=False, overwrite=overwrite, silent=silent)
             concat_files.append(extracted_tracks)
-        for i in range(len(concat_files[0])):
-            combine_files = [ concat_files[j][i] for j in range(len(concat_files)) ]
-            cbn = sox.Combiner()
-            if silent:
-                cbn.set_globals(verbosity=0)
-            formats = [ 'wav' for file in extracted_tracks ]
-            cbn.set_input_format(file_type=formats)
-            outfile = f"{out_path_prefix}_{i+2}_concat.wav"
-            outfiles.append(outfile)
-            cbn.build(combine_files, outfile, 'concatenate')
-        if not nocleanup:
-            for item in concat_files:
-                _cleanup_temp_files(item)
-        return outfiles, framerate, framenum
+            for i in range(len(concat_files[0])):
+                combine_files = [ concat_files[j][i] for j in range(len(concat_files)) ]
+                cbn = sox.Combiner()
+                if silent:
+                    cbn.set_globals(verbosity=0)
+                formats = [ 'wav' for file in extracted_tracks ]
+                cbn.set_input_format(file_type=formats)
+                outfile = f"{out_path_prefix}_{i+2}_concat.wav"
+                outfiles.append(outfile)
+                cbn.build(combine_files, outfile, 'concatenate')
+            if not no_wav:
+                for item in concat_files:
+                    _cleanup_temp_files(item)
+        return outfiles
     else:
-        outfile = infiles
-        return outfile, None, None
+        outfile = in_files
+        return outfile
 
-def mpls_source(mplsdict:str, trimlist:Union[List[Optional[int]], List[List[Optional[int]]]]=None, out_file:Optional[str]=None, out_dir:Optional[str]=None, framenum:Optional[int]=None, framerate:Optional[Fraction]=None, noflac:Optional[bool]=False, noaac:Optional[bool]=False, nocleanup:Optional[bool]=False, silent:Optional[bool]=True):
+def mpls_source(
+                mpls_dict:str, 
+                trim_list:Union[List[Optional[int]], List[List[Optional[int]]]]=None, 
+                out_file:Optional[str]=None, 
+                out_dir:Optional[str]=None, 
+                trims_framerate:Optional[Fraction]=None, 
+                no_flac:Optional[bool]=False, 
+                no_aac:Optional[bool]=False, 
+                no_wav:Optional[bool]=True,
+                overwrite:Optional[bool]=False,
+                nocleanup:Optional[bool]=False, 
+                silent:Optional[bool]=True
+                ):
     """
     Processes audio from a given mpls file. Functions include trimming losslessly and encoding to flac and/or aac. 
     Will concatonate the aligned audio streams when mpls defines multiple video files.
 
-    Notes on trimlist:
+    Notes on trim_list:
         Supports: single, multiple, empty ended, and negative trims.
 
         Format: [[inclusive,exclusive],...].
 
         Examples: 
-            trimlist = [100,500]
+            trim_list = [100,500]
 
-            trimlist = [None,500]
+            trim_list = [None,500]
 
-            trimlist = [100,None]
+            trim_list = [100,None]
 
-            trimlist = [[None,500],[1000,2000],[100,None]]
+            trim_list = [[None,500],[1000,2000],[100,None]]
 
-            trimlist = [-1000,None]
+            trim_list = [-1000,None]
 
-            trimlist = [None,-24]
+            trim_list = [None,-24]
 
         Note: Trims are absolute references to the source, not relative to each other.
 
-    :param mplsdict: The full filepath to the mpls file containing videos to process.
-    :type mplsdict: [type]
-    :param trimlist: A list or a list of lists of trims following python slice syntax, defaults to None.
-    :type trimlist: list, optional
+    :param mpls_dict: The full filepath to the mpls file containing videos to process.
+    :type mpls_dict: [type]
+    :param trim_list: A list or a list of lists of trims following python slice syntax, defaults to None.
+    :type trim_list: list, optional
     :param out_file: A string prefix to name the output files with.
     :type out_file: string
     :param out_dir: A string path for the file output directory. Defaults the script file location. Requires the string format to be: r"path"
     :type out_dir: string
-    :param framenum: Total number of frames in your clip. Overrides automatic detection.
-        Some sources will not include duration information in their metadata. 
-        In these cases, you will need to specify it. 
-        Can be retrieved with core.num_frames().
-        Defaults to None.
-    :type framenum: int, optional
-    :param framerate: Framerate of your source. Overrides automatic detection. 
-        Some sources will not include framerate information in their metadata. 
-        In these cases, you will need to specify it.
-        Can be retrieved with core.fps().
-        Defaults to None.
-    :type framerate: Fraction, optional
-    :param noflac: Disable FLAC encoding, defaults to False
-    :type noflac: bool, optional
-    :param noaac: Disable AAC encoding, defaults to False
-    :type noaac: bool, optional
-    :param nocleanup: Disable cleaning up temp wav files, defaults to False
-    :type nocleanup: bool, optional
-    :param silent: Silence eac3to, flac, and qaac, defaults to True
+    :type trims_framerate: Fraction, optional
+    :param no_flac: Disable FLAC encoding, defaults to False.
+    :type no_flac: bool, optional
+    :param no_aac: Disable AAC encoding, defaults to False.
+    :type no_aac: bool, optional
+    :param no_wav: Cleanup trimmed wav files, defaults to True.
+    :type no_wav: bool, optional
+    :param overwrite: Overwrite existing files (including wav) and forces re-extract and re-encode, deaults to False.
+    :type overwrite: bool, optional
+    :param silent: Silence eac3to, ffmpeg, flac, and qaac, defaults to True.
     :type silent: bool, optional
     :return: A list of filepaths to all of the final processed files.
     :rtype: list
     """
-    infile, framerate, framenum = _mpls_audio(mplsdict, nocleanup, silent)
+    in_file = _mpls_audio(mpls_dict, no_wav, overwrite, silent)
 
-    outfiles = video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
+    outfiles = video_source(in_file, trim_list, out_file, out_dir, trims_framerate, no_flac, no_aac, no_wav, overwrite, silent)
     
     return outfiles
 
-def video_source(infile:str, trimlist:Union[List[Optional[int]], List[List[Optional[int]]]]=None, out_file:Optional[str]=None, out_dir:Optional[str]=None, framenum:Optional[int]=None, framerate:Optional[Fraction]=None, noflac:Optional[bool]=False, noaac:Optional[bool]=False, nocleanup:Optional[bool]=False, silent:Optional[bool]=True):
+def video_source(
+                in_file:str, 
+                trim_list:Union[List[Optional[int]], List[List[Optional[int]]]]=None, 
+                out_file:Optional[str]=None, 
+                out_dir:Optional[str]=None, 
+                trims_framerate:Optional[Fraction]=None, 
+                no_flac:Optional[bool]=False, 
+                no_aac:Optional[bool]=False, 
+                no_wav:Optional[bool]=True,
+                overwrite:Optional[bool]=False,
+                silent:Optional[bool]=True
+                ):
     """
     Processes audio from a given video file. Functions include trimming losslessly and encoding to flac and/or aac.
 
-    Notes on trimlist:
+    Notes on trim_list:
         Supports: single, multiple, empty ended, and negative trims.
 
         Format: [[inclusive,exclusive],...].
 
         Examples: 
-            trimlist = [100,500]
+            trim_list = [100,500]
 
-            trimlist = [None,500]
+            trim_list = [None,500]
 
-            trimlist = [100,None]
+            trim_list = [100,None]
 
-            trimlist = [[None,500],[1000,2000],[100,None]]
+            trim_list = [[None,500],[1000,2000],[100,None]]
 
-            trimlist = [-1000,None]
+            trim_list = [-1000,None]
 
-            trimlist = [None,-24]
+            trim_list = [None,-24]
 
         Note: Trims are absolute references to the source, not relative to each other.
 
-    :param infile: The full filepath to the video file containing audio to process.
-    :type infile: string
+    :param in_file: The full filepath to the video file containing audio to process.
+    :type in_file: string
     :param out_file: A string prefix to name the output files with.
     :type out_file: string
     :param out_dir: A string path for the file output directory. Defaults the script file location. Requires the string format to be: r"path"
     :type out_dir: string
-    :param trimlist: A list or a list of lists of trims following python slice syntax, defaults to None.
-    :type trimlist: list, optional
-    :param framenum: Total number of frames in your clip. Overrides automatic detection.
-        Some sources will not include duration information in their metadata. 
-        In these cases, you will need to specify it. 
-        Can be retrieved with core.num_frames().
-        Defaults to None.
-    :type framenum: int, optional
-    :param framerate: Framerate of your source. Overrides automatic detection. 
-        Some sources will not include framerate information in their metadata. 
-        In these cases, you will need to specify it.
+    :param trim_list: A list or a list of lists of trims following python slice syntax, defaults to None.
+    :type trim_list: list, optional
+    :param trims_framerate: Framerate of your source. Overrides automatic detection. 
+        If your source framerate is not the same as your output framerate,
+        such as with interlaced sources, you
         Can be retrieved with core.fps().
         Defaults to None.
-    :type framerate: Fraction, optional
-    :param noflac: Disable FLAC encoding, defaults to False
-    :type noflac: bool, optional
-    :param noaac: Disable AAC encoding, defaults to False
-    :type noaac: bool, optional
-    :param nocleanup: Disable cleaning up temp wav files, defaults to False
-    :type nocleanup: bool, optional
-    :param silent: Silence eac3to, flac, and qaac, defaults to True
+    :type trims_framerate: Fraction, optional
+    :param no_flac: Disable FLAC encoding, defaults to False.
+    :type no_flac: bool, optional
+    :param no_aac: Disable AAC encoding, defaults to False.
+    :type no_aac: bool, optional
+    :param no_wav: Cleanup trimmed wav files, defaults to True.
+    :type no_wav: bool, optional
+    :param overwrite: Overwrite existing files (including wav) and forces re-extract and re-encode, deaults to False.
+    :type overwrite: bool, optional
+    :param silent: Silence eac3to, ffmpeg, flac, and qaac, defaults to True.
     :type silent: bool, optional
-    :raises SystemExit: Missing source metadata. Must supply your own.
+    :raises SystemExit: Missing dependencies.
     :return: A list of filepaths to all of the final processed files.
     :rtype: list
     """
 
-    infile = os.path.abspath(infile)
+    in_file = str(os.path.abspath(in_file))
 
-    if type(infile) is list:
-        infile = infile[0]
+    if type(in_file) is list:
+        in_file = in_file[0]
 
-    if out_file is None and out_dir is None:
-        out_dir = os.getcwd()
-        out_file = os.path.splitext(os.path.basename(infile))[0]
-    elif out_file is not None and out_dir is None:
-        out_dir = os.getcwd()
-    elif out_file is None and out_dir is not None:
-        out_dir = os.path.normpath(out_dir)
-        out_file = os.path.splitext(os.path.basename(infile))[0]
-    else:
-        out_dir = os.path.normpath(out_dir)
-    print
-    out_prefix = os.path.normpath(f"{out_dir}/{out_file}")
+    out_prefix = _get_out_prefix(in_file, out_file, out_dir)
 
-    extracted_tracks, framerate_temp, framenum_temp, offset_time = _extract_tracks_as_wav(infile, out_prefix, silent)
+    meta_info = _build_extract_data(in_file, out_prefix)
+    check_write = _write_files(meta_info, no_flac, no_aac, no_wav, overwrite, silent)
+    if check_write:
+        _extract_tracks_as_wav(in_file, meta_info, overwrite, silent)
 
-    if framenum is None and framenum_temp is None:
-        raise SystemExit('Source does not contain duration information. Specify it with the "framenum" argument.')
-    elif framenum is None:
-        framenum = framenum_temp
+        if trims_framerate is not None:
+            meta_info['framerate'] = trims_framerate
 
-    if framerate is None and framerate_temp is None:
-        raise SystemExit('Source does not contain framerate information. Specify it with the "framerate" argument.')
-    elif framerate is None:
-        framerate = framerate_temp
-    else:
-        framerate = Fraction(framerate)
-
-    if trimlist is not None:
-        if type(trimlist[0]) is list and len(trimlist) == 1:
-            trimlist = trimlist[0]
-        trimfiles, temp_outfiles = _trim_tracks_as_wav(extracted_tracks, trimlist, framerate, framenum, offset_time, silent)
-    else:
-        trimfiles = extracted_tracks
-        temp_outfiles = None
-
+        if trim_list is not None:
+            if type(trim_list[0]) is list and len(trim_list) == 1:
+                trim_list = trim_list[0]
+            _trim_tracks_as_wav(meta_info, trim_list, overwrite, silent)
+    elif not silent: 
+        print("AudioProcessor: All files exist and overwrite not specified.")
     outfiles = []
-    if not noflac:
-        outfiles.extend(_encode_flac(trimfiles, silent))
-    if not noaac:
-        outfiles.extend(_encode_aac(trimfiles, silent))
+    if not no_flac:
+        _encode_flac(meta_info, overwrite, silent)
+        outfiles.extend([track['flac'] for track in meta_info['audio_tracks']])
+    if not no_aac:
+        _encode_aac(meta_info, overwrite, silent)
+        outfiles.extend([track['aac'] for track in meta_info['audio_tracks']])
+    if no_wav:
+        _cleanup_temp_files([track['wav'] for track in meta_info['audio_tracks']])
+    else:
+        outfiles.extend([track['wav'] for track in meta_info['audio_tracks']])
     
-    if not nocleanup:
-        _cleanup_temp_files(extracted_tracks)
-        _cleanup_temp_files(trimfiles)
-        if temp_outfiles is not None:
-            _cleanup_temp_files(temp_outfiles)
-    
+    # always cleanup raw wav
+    _cleanup_temp_files([track['raw_wav'] for track in meta_info['audio_tracks']])
+
     return outfiles
     
 
 def _main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-I", "--infile",
+    parser.add_argument("-I", "--in_file",
                         default = None,
-                        help="The file which contains audio to process. Can be a video or audio file. Only one source type can be spcified, infile or mplsdict.",
+                        help="The file which contains audio to process. Can be a video or audio file. Only one source type can be spcified, in_file or mpls_dict.",
                         action="store")
-    parser.add_argument("-M", "--mplsdict",
+    parser.add_argument("-M", "--mpls_dict",
                         default = None,
-                        help="A dictionary constructed from an mpls, such as from VapourSynth-ReadMpls. Overrides the infile argument.",
+                        help="A dictionary constructed from an mpls, such as from VapourSynth-ReadMpls. Overrides the in_file argument.",
                         action="store")
-    parser.add_argument("-T", "--trimlist",
+    parser.add_argument("-T", "--trim_list",
                         default = None,
-                        help="List  or list of lists of trims",
+                        help="List or list of lists of trims",
                         action="store")
-    parser.add_argument("-N", "--framenum",
-                        default = None,
-                        help="Total number of frames in the file",
-                        action="store",
-                        type=int)
-    parser.add_argument("-F", "--framerate",
+    parser.add_argument("--out_file",
+                        default = "filename",
+                        help="A string prefix to name the output files with.",
+                        action="store")
+    parser.add_argument("--out_dir",
+                        default = r"C:\out",
+                        help="A string path for the file output directory. Defaults the script file location.",
+                        action="store")
+    parser.add_argument("-F", "--trims_framerate",
                         default = "24000/1001",
                         help="Frame rate (ie. 24000/1001)",
                         action="store")
-    parser.add_argument("--noflac",
+    parser.add_argument("--no_flac",
                         action="store_true", default=False,
                         help="Disable FLAC encoding (default: %(default)s)")
-    parser.add_argument("--noaac",
+    parser.add_argument("--no_aac",
                         action="store_true", default=False,
                         help="Disable AAC encoding (default: %(default)s)")
-    parser.add_argument("--nocleanup",
+    parser.add_argument("--no_wav",
+                        action="store_true", default=True,
+                        help="Cleanup trimmed wav files (default: %(default)s)")
+    parser.add_argument("--overwrite",
                         action="store_true", default=False,
-                        help="Disable cleaning up temp wav files (default: %(default)s)")
+                        help="Overwrite existing files (including wav) and forces re-extract and re-encode. (default: %(default)s)")
     parser.add_argument("--silent",
                         action="store_true", default=False,
-                        help="Silence eac3to, flac, and qaac (default: %(default)s)")
+                        help="Silence eac3to, ffmpeg, flac, and qaac. (default: %(default)s)")
     args = parser.parse_args()
-    infile = args.infile
-    mplsdict = args.mplsdict
-    trimlist = args.trimlist
-    framenum = args.framenum
-    framerate = args.framerate
-    noflac = args.noflac
-    noaac = args.noaac
+    in_file = args.in_file
+    mpls_dict = args.mpls_dict
+    trim_list = args.trim_list
+    out_file = args.out_file
+    out_dir = args.out_dir
+    trims_framerate = args.trims_framerate
+    no_flac = args.no_flac
+    no_aac = args.no_aac
+    no_wav = args.no_wav
+    overwrite = args.overwrite
     silent = args.silent
-    if infile and mplsdict:
-        raise SystemExit('You must spcify only one input type, infile or mplsdict.')
-    elif infile:
-        video_source(infile, trimlist, framenum, framerate, noflac, noaac, silent)
-    elif mplsdict:
-        mpls_source(mplsdict, trimlist, framenum, framerate, noflac, noaac, silent)
+    if in_file and mpls_dict:
+        raise SystemExit('You must spcify only one input type, in_file or mpls_dict.')
+    elif in_file:
+        video_source(in_file, trim_list, out_file, out_dir, trims_framerate, no_flac, no_aac, no_wav, overwrite, silent)
+    elif mpls_dict:
+        mpls_source(mpls_dict, trim_list, out_file, out_dir, trims_framerate, no_flac, no_aac, no_wav, overwrite, silent)
 
 if __name__ == "__main__":
     _main()
