@@ -2,6 +2,15 @@
 Changelog
 =========
 
+Version 2.0.0
+===========
+
+BREAKING UPDATE
+- I hate LightArrowsEXE.
+- Rewrite and restructuring of AudioProcessor to handle checking for file existence so that it doesn't rerun core functions if the end output files already exist.
+- Most parameters changed. 
+- Honestly too lazy to check the mpls functionality. Hope it works.
+
 Version 1.2.2
 ===========
 
