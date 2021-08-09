@@ -234,24 +234,24 @@ def _get_out_prefix(in_file, out_file, out_dir):
     out_prefix = PurePath.joinpath(out_dir, out_file)
     return Path(out_prefix)
 
-def _write_files(meta_info, no_flac, no_aac, no_wav, overwrite, silent):
+def _write_files(meta_info, flac, aac, wav, overwrite, silent):
     missing_files_found = False
     if overwrite:
         return missing_files_found
     for track in meta_info['audio_tracks']:
-        if not no_flac:
+        if flac:
             if not Path(track['flac']).exists():
                 missing_files_found = True
                 if not silent: print(f"{Path(track['flac'])} does not exist")
             elif not silent:
                 print(f"{Path(track['flac'])} exists")
-        if not no_aac:
+        if aac:
             if not Path(track['aac']).exists():
                 missing_files_found = True
                 if not silent: print(f"{Path(track['aac'])} does not exist")
             elif not silent:
                 print(f"{Path(track['aac'])} exists")
-        if not no_wav:
+        if wav:
             if not Path(track['wav']).exists():
                 missing_files_found = True
                 if not silent: print(f"{Path(track['wav'])} does not exist")
@@ -266,7 +266,7 @@ def _write_files(meta_info, no_flac, no_aac, no_wav, overwrite, silent):
 #  core input handling  #
 #########################
 
-def _mpls_audio(mpls_dict, no_wav, overwrite, silent):
+def _mpls_audio(mpls_dict, wav, overwrite, silent):
     clip_list = mpls_dict['clip']
     in_files = []
     for clip in clip_list:
@@ -284,7 +284,7 @@ def _mpls_audio(mpls_dict, no_wav, overwrite, silent):
             raise ModuleNotFoundError('AudioProcessor.VideoSource: missing sox dependency for concatonating.')
         for in_file in in_files:
             concat_files = []
-            extracted_tracks = video_source(in_file, no_flac=True, no_aac=True, no_wav=False, overwrite=overwrite, silent=silent)
+            extracted_tracks = video_source(in_file, flac=False, aac=False, wav=True, overwrite=overwrite, silent=silent)
             concat_files.append(extracted_tracks)
             for i in range(len(concat_files[0])):
                 combine_files = [ concat_files[j][i] for j in range(len(concat_files)) ]
@@ -296,7 +296,7 @@ def _mpls_audio(mpls_dict, no_wav, overwrite, silent):
                 outfile = f"{out_path_prefix}_{i+2}_concat.wav"
                 outfiles.append(outfile)
                 cbn.build(combine_files, outfile, 'concatenate')
-            if not no_wav:
+            if not wav:
                 for item in concat_files:
                     _cleanup_temp_files(item)
         return outfiles
@@ -310,12 +310,11 @@ def mpls_source(
                 out_file:Optional[str]=None, 
                 out_dir:Optional[str]=None, 
                 trims_framerate:Optional[Fraction]=None, 
-                no_flac:Optional[bool]=False, 
-                no_aac:Optional[bool]=False, 
-                no_wav:Optional[bool]=True,
-                overwrite:Optional[bool]=False,
-                nocleanup:Optional[bool]=False, 
-                silent:Optional[bool]=True
+                flac:bool=True, 
+                aac:bool=True, 
+                wav:bool=False,
+                overwrite:bool=False,
+                silent:bool=True
                 ):
     """
     Processes audio from a given mpls file. Functions include trimming losslessly and encoding to flac and/or aac. 
@@ -359,12 +358,12 @@ def mpls_source(
         Useful for VFR, where this *must* be the total before any trimming.
         Otherwise, probably just leave it blank.
     :type frames_total: int, optional
-    :param no_flac: Disable FLAC encoding, defaults to False.
-    :type no_flac: bool, optional
-    :param no_aac: Disable AAC encoding, defaults to False.
-    :type no_aac: bool, optional
-    :param no_wav: Cleanup trimmed wav files, defaults to True.
-    :type no_wav: bool, optional
+    :param flac: Enable FLAC encoding, defaults to True.
+    :type flac: bool, optional
+    :param aac: Enable AAC encoding, defaults to True.
+    :type aac: bool, optional
+    :param wav: Retain output of trimmed wav files, defaults to True.
+    :type wav: bool, optional
     :param overwrite: Overwrite existing files (including wav) and forces re-extract and re-encode, deaults to False.
     :type overwrite: bool, optional
     :param silent: Silence eac3to, ffmpeg, flac, and qaac, defaults to True.
@@ -372,9 +371,9 @@ def mpls_source(
     :return: A list of filepaths to all of the final processed files.
     :rtype: list
     """
-    in_file = _mpls_audio(mpls_dict, no_wav, overwrite, silent)
+    in_file = _mpls_audio(mpls_dict, wav, overwrite, silent)
 
-    outfiles = video_source(in_file, trim_list, out_file, out_dir, trims_framerate, no_flac, no_aac, no_wav, overwrite, silent)
+    outfiles = video_source(in_file, trim_list, out_file, out_dir, trims_framerate, flac, aac, wav, overwrite, silent)
     
     return outfiles
 
@@ -385,11 +384,11 @@ def video_source(
                 out_dir:Optional[str]=None, 
                 trims_framerate:Optional[Fraction]=None,
                 frames_total:Optional[int]=None,
-                no_flac:Optional[bool]=False, 
-                no_aac:Optional[bool]=False, 
-                no_wav:Optional[bool]=True,
-                overwrite:Optional[bool]=False,
-                silent:Optional[bool]=True
+                flac:bool=True, 
+                aac:bool=True, 
+                wav:bool=False,
+                overwrite:bool=False,
+                silent:bool=True
                 ):
     """
     Processes audio from a given video file. Functions include trimming losslessly and encoding to flac and/or aac.
@@ -432,12 +431,12 @@ def video_source(
         Useful for VFR, where this *must* be the total before any trimming.
         Otherwise, probably just leave it blank.
     :type frames_total: int, optional
-    :param no_flac: Disable FLAC encoding, defaults to False.
-    :type no_flac: bool, optional
-    :param no_aac: Disable AAC encoding, defaults to False.
-    :type no_aac: bool, optional
-    :param no_wav: Cleanup trimmed wav files, defaults to True.
-    :type no_wav: bool, optional
+    :param flac: Disable FLAC encoding, defaults to False.
+    :type flac: bool, optional
+    :param aac: Disable AAC encoding, defaults to False.
+    :type aac: bool, optional
+    :param wav: Retain output of trimmed wav files, defaults to True.
+    :type wav: bool, optional
     :param overwrite: Overwrite existing files (including wav) and forces re-extract and re-encode, deaults to False.
     :type overwrite: bool, optional
     :param silent: Silence eac3to, ffmpeg, flac, and qaac, defaults to True.
@@ -455,7 +454,7 @@ def video_source(
     out_prefix = _get_out_prefix(in_file, out_file, out_dir)
 
     meta_info = _build_extract_data(in_file, out_prefix, trims_framerate, frames_total)
-    check_write = _write_files(meta_info, no_flac, no_aac, no_wav, overwrite, silent)
+    check_write = _write_files(meta_info, flac, aac, wav, overwrite, silent)
     if check_write:
         _extract_tracks_as_wav(in_file, meta_info, overwrite, silent)
 
@@ -466,13 +465,13 @@ def video_source(
     elif not silent: 
         print("AudioProcessor: All files exist and overwrite not specified.")
     outfiles = []
-    if not no_flac:
+    if flac:
         _encode_flac(meta_info, overwrite, silent)
         outfiles.extend([track['flac'] for track in meta_info['audio_tracks']])
-    if not no_aac:
+    if aac:
         _encode_aac(meta_info, overwrite, silent)
         outfiles.extend([track['aac'] for track in meta_info['audio_tracks']])
-    if no_wav:
+    if not wav:
         _cleanup_temp_files([track['wav'] for track in meta_info['audio_tracks']])
     else:
         outfiles.extend([track['wav'] for track in meta_info['audio_tracks']])
@@ -509,15 +508,15 @@ def _main():
                         default = "24000/1001",
                         help="Frame rate (ie. 24000/1001)",
                         action="store")
-    parser.add_argument("--no_flac",
+    parser.add_argument("--flac",
                         action="store_true", default=False,
-                        help="Disable FLAC encoding (default: %(default)s)")
-    parser.add_argument("--no_aac",
+                        help="Enable FLAC encoding (default: %(default)s)")
+    parser.add_argument("--aac",
                         action="store_true", default=False,
-                        help="Disable AAC encoding (default: %(default)s)")
-    parser.add_argument("--no_wav",
+                        help="Enable AAC encoding (default: %(default)s)")
+    parser.add_argument("--wav",
                         action="store_true", default=True,
-                        help="Cleanup trimmed wav files (default: %(default)s)")
+                        help="Retain output of trimmed wav files (default: %(default)s)")
     parser.add_argument("--overwrite",
                         action="store_true", default=False,
                         help="Overwrite existing files (including wav) and forces re-extract and re-encode. (default: %(default)s)")
@@ -531,17 +530,17 @@ def _main():
     out_file = args.out_file
     out_dir = args.out_dir
     trims_framerate = args.trims_framerate
-    no_flac = args.no_flac
-    no_aac = args.no_aac
-    no_wav = args.no_wav
+    flac = args.flac
+    aac = args.aac
+    wav = args.wav
     overwrite = args.overwrite
     silent = args.silent
     if in_file and mpls_dict:
         raise SystemExit('You must spcify only one input type, in_file or mpls_dict.')
     elif in_file:
-        video_source(in_file, trim_list, out_file, out_dir, trims_framerate, no_flac, no_aac, no_wav, overwrite, silent)
+        video_source(in_file, trim_list, out_file, out_dir, trims_framerate, flac, aac, wav, overwrite, silent)
     elif mpls_dict:
-        mpls_source(mpls_dict, trim_list, out_file, out_dir, trims_framerate, no_flac, no_aac, no_wav, overwrite, silent)
+        mpls_source(mpls_dict, trim_list, out_file, out_dir, trims_framerate, flac, aac, wav, overwrite, silent)
 
 if __name__ == "__main__":
     _main()

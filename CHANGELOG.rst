@@ -2,6 +2,14 @@
 Changelog
 =========
 
+Version 2.1.0
+===========
+
+BREAKING CHANGE
+---------------
+- Changed behavior of output to flac/aac/wav. Instead of "no_[codec]" where it disables output, now it enables output. "no_" prefix has been removed from arguments.
+
+
 Version 2.0.1
 ===========
 
@@ -12,6 +20,7 @@ Version 2.0.0
 ===========
 
 BREAKING CHANGE
+---------------
 - I hate LightArrowsEXE.
 - Rewrite and restructuring of AudioProcessor to handle checking for file existence so that it doesn't rerun core functions if the end output files already exist.
 - Most parameters changed. 
