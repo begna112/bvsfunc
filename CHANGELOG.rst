@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 2.1.2
+===========
+
+- fixed handling of trim_list being None or [None,None].
+
 Version 2.1.1
 ===========
 

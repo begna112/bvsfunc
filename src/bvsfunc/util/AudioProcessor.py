@@ -454,6 +454,13 @@ def video_source(
     out_prefix = _get_out_prefix(in_file, out_file, out_dir)
 
     meta_info = _build_extract_data(in_file, out_prefix, trims_framerate, frames_total)
+
+    if trim_list is None or trim_list == [None,None]:
+        for track in meta_info["audio_tracks"]:
+            for x in track:
+                if isinstance(track[x], str): 
+                    track[x].replace('_cut','')
+
     check_write = _write_files(meta_info, flac, aac, wav, overwrite, silent)
     if check_write:
         _extract_tracks_as_wav(in_file, meta_info, overwrite, silent)
@@ -462,6 +469,7 @@ def video_source(
             if type(trim_list[0]) is list and len(trim_list) == 1:
                 trim_list = trim_list[0]
             _trim_tracks_as_wav(meta_info, trim_list, overwrite, silent)
+
     elif not silent: 
         print("AudioProcessor: All files exist and overwrite not specified.")
     outfiles = []
