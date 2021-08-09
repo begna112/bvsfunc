@@ -2,6 +2,11 @@
 Changelog
 =========
 
+Version 2.1.3
+===========
+
+- fixed me being dumb with 2.1.2.
+
 Version 2.1.2
 ===========
 

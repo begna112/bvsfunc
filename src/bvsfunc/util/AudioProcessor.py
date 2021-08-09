@@ -459,7 +459,7 @@ def video_source(
         for track in meta_info["audio_tracks"]:
             for x in track:
                 if isinstance(track[x], str): 
-                    track[x].replace('_cut','')
+                    track[x] = track[x].replace('_cut','')
 
     check_write = _write_files(meta_info, flac, aac, wav, overwrite, silent)
     if check_write:
