@@ -2,10 +2,16 @@
 Changelog
 =========
 
+Version 2.0.1
+===========
+
+- add a frames_total parameter that might be useful for VFR sources
+- add handling for VFR sources with trims_framerate better. Raises an error if it can't reach a solution.
+
 Version 2.0.0
 ===========
 
-BREAKING UPDATE
+BREAKING CHANGE
 - I hate LightArrowsEXE.
 - Rewrite and restructuring of AudioProcessor to handle checking for file existence so that it doesn't rerun core functions if the end output files already exist.
 - Most parameters changed. 

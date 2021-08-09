@@ -20,7 +20,7 @@ FRAMERATE_MAP = {
 #  metadata functions  #
 ########################
 
-def _get_metainfo(in_file):
+def _get_metainfo(in_file, trims_framerate, frames_total):
     try:
         from pymediainfo import MediaInfo
     except ModuleNotFoundError:
@@ -35,13 +35,16 @@ def _get_metainfo(in_file):
     for track in media_info.tracks:
         if track.track_type == "Video":
             if track.framerate_den is None or track.framerate_num is None:
-                extracted_metainfo["framenum"] = int(track.frame_count)
-                extracted_metainfo["framerate"] = FRAMERATE_MAP[track.frame_rate]
+                extracted_metainfo["framenum"] = int(track.frame_count) if frames_total is None else frames_total
+                try:
+                    extracted_metainfo['framerate'] = FRAMERATE_MAP[track.frame_rate] if trims_framerate is None else trims_framerate
+                except KeyError:
+                    raise KeyError("Your source video is not one of the supported framrates. Either supply a custom framerate with trims_framerate or, if it is a common framerate, submit an issue.")
             else:
                 framerate_num = int(track.framerate_num)
                 framerate_den = int(track.framerate_den)
-                extracted_metainfo["framerate"] = f"{framerate_num}/{framerate_den}"
-                extracted_metainfo["framenum"] = int(track.frame_count)
+                extracted_metainfo['framerate'] = f"{framerate_num}/{framerate_den}" if trims_framerate is None else trims_framerate
+                extracted_metainfo["framenum"] = int(track.frame_count) if frames_total is None else frames_total
             extracted_metainfo["duration"] = track.duration
             stream_id += 1
         elif track.track_type == "Audio":
@@ -58,8 +61,8 @@ def _get_metainfo(in_file):
             pass
     return extracted_metainfo
 
-def _build_extract_data(in_file, out_prefix):
-    extracted_metainfo = _get_metainfo(in_file)
+def _build_extract_data(in_file, out_prefix, trims_framerate, frames_total):
+    extracted_metainfo = _get_metainfo(in_file, trims_framerate, frames_total)
     for audio_track in extracted_metainfo["audio_tracks"]:
         codecs = ['wav','flac','aac']
         for ext in codecs:
@@ -342,11 +345,20 @@ def mpls_source(
     :type mpls_dict: [type]
     :param trim_list: A list or a list of lists of trims following python slice syntax, defaults to None.
     :type trim_list: list, optional
-    :param out_file: A string prefix to name the output files with.
+    :param trims_framerate: Framerate of your source. Overrides automatic detection. 
+        If your source framerate is not the same as your output framerate,
+        such as with interlaced sources, you
+        Can be retrieved with core.fps().
+        Defaults to None.
     :type out_file: string
     :param out_dir: A string path for the file output directory. Defaults the script file location. Requires the string format to be: r"path"
     :type out_dir: string
     :type trims_framerate: Fraction, optional
+    :param out_file: A string prefix to name the output files with.
+    :param frames_total: The total number of frames in the clip before trimming. 
+        Useful for VFR, where this *must* be the total before any trimming.
+        Otherwise, probably just leave it blank.
+    :type frames_total: int, optional
     :param no_flac: Disable FLAC encoding, defaults to False.
     :type no_flac: bool, optional
     :param no_aac: Disable AAC encoding, defaults to False.
@@ -371,7 +383,8 @@ def video_source(
                 trim_list:Union[List[Optional[int]], List[List[Optional[int]]]]=None, 
                 out_file:Optional[str]=None, 
                 out_dir:Optional[str]=None, 
-                trims_framerate:Optional[Fraction]=None, 
+                trims_framerate:Optional[Fraction]=None,
+                frames_total:Optional[int]=None,
                 no_flac:Optional[bool]=False, 
                 no_aac:Optional[bool]=False, 
                 no_wav:Optional[bool]=True,
@@ -403,10 +416,6 @@ def video_source(
 
     :param in_file: The full filepath to the video file containing audio to process.
     :type in_file: string
-    :param out_file: A string prefix to name the output files with.
-    :type out_file: string
-    :param out_dir: A string path for the file output directory. Defaults the script file location. Requires the string format to be: r"path"
-    :type out_dir: string
     :param trim_list: A list or a list of lists of trims following python slice syntax, defaults to None.
     :type trim_list: list, optional
     :param trims_framerate: Framerate of your source. Overrides automatic detection. 
@@ -414,7 +423,15 @@ def video_source(
         such as with interlaced sources, you
         Can be retrieved with core.fps().
         Defaults to None.
+    :type out_file: string
+    :param out_dir: A string path for the file output directory. Defaults the script file location. Requires the string format to be: r"path"
+    :type out_dir: string
     :type trims_framerate: Fraction, optional
+    :param out_file: A string prefix to name the output files with.
+    :param frames_total: The total number of frames in the clip before trimming. 
+        Useful for VFR, where this *must* be the total before any trimming.
+        Otherwise, probably just leave it blank.
+    :type frames_total: int, optional
     :param no_flac: Disable FLAC encoding, defaults to False.
     :type no_flac: bool, optional
     :param no_aac: Disable AAC encoding, defaults to False.
@@ -437,13 +454,10 @@ def video_source(
 
     out_prefix = _get_out_prefix(in_file, out_file, out_dir)
 
-    meta_info = _build_extract_data(in_file, out_prefix)
+    meta_info = _build_extract_data(in_file, out_prefix, trims_framerate, frames_total)
     check_write = _write_files(meta_info, no_flac, no_aac, no_wav, overwrite, silent)
     if check_write:
         _extract_tracks_as_wav(in_file, meta_info, overwrite, silent)
-
-        if trims_framerate is not None:
-            meta_info['framerate'] = trims_framerate
 
         if trim_list is not None:
             if type(trim_list[0]) is list and len(trim_list) == 1:
