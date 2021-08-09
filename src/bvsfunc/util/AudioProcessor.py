@@ -362,7 +362,7 @@ def mpls_source(
     :type flac: bool, optional
     :param aac: Enable AAC encoding, defaults to True.
     :type aac: bool, optional
-    :param wav: Retain output of trimmed wav files, defaults to True.
+    :param wav: Retain output of trimmed wav files, defaults to False.
     :type wav: bool, optional
     :param overwrite: Overwrite existing files (including wav) and forces re-extract and re-encode, deaults to False.
     :type overwrite: bool, optional
@@ -431,11 +431,11 @@ def video_source(
         Useful for VFR, where this *must* be the total before any trimming.
         Otherwise, probably just leave it blank.
     :type frames_total: int, optional
-    :param flac: Disable FLAC encoding, defaults to False.
+    :param flac: Disable FLAC encoding, defaults to True.
     :type flac: bool, optional
-    :param aac: Disable AAC encoding, defaults to False.
+    :param aac: Disable AAC encoding, defaults to True.
     :type aac: bool, optional
-    :param wav: Retain output of trimmed wav files, defaults to True.
+    :param wav: Retain output of trimmed wav files, defaults to False.
     :type wav: bool, optional
     :param overwrite: Overwrite existing files (including wav) and forces re-extract and re-encode, deaults to False.
     :type overwrite: bool, optional

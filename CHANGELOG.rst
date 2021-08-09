@@ -2,13 +2,17 @@
 Changelog
 =========
 
+Version 2.1.1
+===========
+
+- fixed param docstring to reflect changes from 2.1.0.
+
 Version 2.1.0
 ===========
 
 BREAKING CHANGE
 ---------------
 - Changed behavior of output to flac/aac/wav. Instead of "no_[codec]" where it disables output, now it enables output. "no_" prefix has been removed from arguments.
-
 
 Version 2.0.1
 ===========
