@@ -2,6 +2,12 @@
 Changelog
 =========
 
+Version 2.1.4
+===========
+
+- fixed override of trims and framerate for non-video audio source inputs
+- fixed docstrings for enabling format outputs
+
 Version 2.1.3
 ===========
 

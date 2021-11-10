@@ -131,12 +131,12 @@ def _sox_trim(in_file, outfile, trim, framenum, offset_time, SPF, silent):
     tfm.trim(start_time, end_time)
     tfm.build(in_file,outfile)
 
-def _trim_tracks_as_wav(meta_info, trim_list, overwrite, silent):
+def _trim_tracks_as_wav(meta_info, trim_list, trims_framerate, overwrite, silent):
     try:
         import sox
     except ModuleNotFoundError:
         raise ModuleNotFoundError('AudioProcessor.VideoSource: missing sox dependency for trimming.')
-    framerate = Fraction(meta_info['framerate'])
+    framerate = Fraction(trims_framerate if meta_info['framerate'] is None else meta_info['framerate'])
     SPF = float(1.0 / framerate)
     for track in meta_info['audio_tracks']:
         temp_outfiles = []
@@ -431,9 +431,9 @@ def video_source(
         Useful for VFR, where this *must* be the total before any trimming.
         Otherwise, probably just leave it blank.
     :type frames_total: int, optional
-    :param flac: Disable FLAC encoding, defaults to True.
+    :param flac: Enable FLAC encoding, defaults to True.
     :type flac: bool, optional
-    :param aac: Disable AAC encoding, defaults to True.
+    :param aac: Enable AAC encoding, defaults to True.
     :type aac: bool, optional
     :param wav: Retain output of trimmed wav files, defaults to False.
     :type wav: bool, optional
@@ -468,7 +468,7 @@ def video_source(
         if trim_list is not None:
             if type(trim_list[0]) is list and len(trim_list) == 1:
                 trim_list = trim_list[0]
-            _trim_tracks_as_wav(meta_info, trim_list, overwrite, silent)
+            _trim_tracks_as_wav(meta_info, trim_list, trims_framerate, overwrite, silent)
 
     elif not silent: 
         print("AudioProcessor: All files exist and overwrite not specified.")
