@@ -81,7 +81,7 @@ def _create_symlink_for_sane_ripping_fuck_eac3to(in_file):
     if dir == "STREAM":
         import tempfile
         temp = tempfile.gettempdir()
-        file_path = Path(f"{temp}\{file_purepath.parts[-1]}")
+        file_path = Path(fr"{temp}\{file_purepath.parts[-1]}")
         # remove existing links in case a previous cut was interrupted. 
         if (Path.is_symlink(file_path)):
             file_path.unlink(missing_ok=False)
@@ -93,18 +93,23 @@ def _create_symlink_for_sane_ripping_fuck_eac3to(in_file):
 def _extract_tracks_as_wav(in_file, meta_info, overwrite, silent):
     for track in meta_info['audio_tracks']:
         extract_file = Path(track['raw_wav'])
-        if not Path(extract_file).exists() or overwrite:
-            temp_file = _create_symlink_for_sane_ripping_fuck_eac3to(in_file)
-            eac3to_cmds = ["eac3to", f"{temp_file}", "-log=NUL", f"{track['stream_id']}:", f"{extract_file}"]
-            ffmpeg_cmds = ["ffmpeg", "-i", f"{temp_file}", "-map", f"0:{track['stream_id'] - 1}", f"{extract_file}"]
-            subp_args = {}
-            subp_args |= {'args': eac3to_cmds} if track['format'] != "AAC" else {'args': ffmpeg_cmds}
-            subp_args |= {'stdout':subprocess.DEVNULL, 'creationflags':subprocess.CREATE_NO_WINDOW, 'shell':True} if silent else {'shell':True}
-            subprocess.call(**subp_args)
-            if (Path(temp_file).is_symlink()):
-                Path(temp_file).unlink(missing_ok=False)
-        elif not silent:
-            print(f"AudioProcessor: wav file exists and overwrite not specified.")
+        if Path(in_file).suffix != ".wav":
+            if not Path(extract_file).exists() or overwrite:
+                temp_file = _create_symlink_for_sane_ripping_fuck_eac3to(in_file)
+                eac3to_cmds = ["eac3to", f"{temp_file}", "-log=NUL", f"{track['stream_id']}:", f"{extract_file}"]
+                ffmpeg_cmds = ["ffmpeg", "-i", f"{temp_file}", "-map", f"0:{track['stream_id'] - 1}", f"{extract_file}"]
+                subp_args = {}
+                subp_args |= {'args': eac3to_cmds} if track['format'] != "AAC" else {'args': ffmpeg_cmds}
+                subp_args |= {'stdout':subprocess.DEVNULL, 'creationflags':subprocess.CREATE_NO_WINDOW, 'shell':True} if silent else {'shell':True}
+                subprocess.call(**subp_args)
+                if (Path(temp_file).is_symlink()):
+                    Path(temp_file).unlink(missing_ok=False)
+            elif not silent:
+                print(f"AudioProcessor: wav file exists and overwrite not specified.")
+                print(f"AudioProcessor: {extract_file}")
+        else:
+            print(f"AudioProcessor: input is already a wav file. no extraction needed")
+            shutil.copy(Path(in_file),extract_file)
             print(f"AudioProcessor: {extract_file}")
     return 
 
@@ -523,7 +528,7 @@ def _main():
                         action="store_true", default=False,
                         help="Enable AAC encoding (default: %(default)s)")
     parser.add_argument("--wav",
-                        action="store_true", default=True,
+                        action="store_true", default=False,
                         help="Retain output of trimmed wav files (default: %(default)s)")
     parser.add_argument("--overwrite",
                         action="store_true", default=False,
